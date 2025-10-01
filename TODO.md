@@ -1,0 +1,4 @@
+- [x] Create utility function for ImgBB image upload in lib/utils.ts
+- [x] Update CreateEventDialog.tsx to use ImgBB upload instead of Firebase Storage
+- [x] Update EditEventDialog.tsx to use ImgBB upload instead of Firebase Storage
+- [ ] Test image upload and display functionality

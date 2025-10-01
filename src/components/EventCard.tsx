@@ -1,14 +1,37 @@
-import { useState } from 'react';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { Event } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Clock, Bell, Check, ExternalLink, Mail, Phone, Trophy, DollarSign } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { useState } from "react";
+import {
+  doc,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  getDoc,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
+import { Event } from "@/types";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  Bell,
+  Check,
+  ExternalLink,
+  Mail,
+  Phone,
+  Trophy,
+  DollarSign,
+} from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface EventCardProps {
   event: Event;
@@ -18,38 +41,38 @@ interface EventCardProps {
 const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
   const { currentUser, userProfile } = useAuth();
   const [isRegistered, setIsRegistered] = useState(
-    event.registrations?.includes(currentUser?.uid || '') || false
+    event.registrations?.includes(currentUser?.uid || "") || false
   );
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to register for events');
+      toast.error("Please sign in to register for events");
       return;
     }
 
     setLoading(true);
     try {
-      const eventRef = doc(db, 'events', event.id);
-      
+      const eventRef = doc(db, "events", event.id);
+
       if (isRegistered) {
         await updateDoc(eventRef, {
-          registrations: arrayRemove(currentUser.uid)
+          registrations: arrayRemove(currentUser.uid),
         });
         setIsRegistered(false);
-        toast.success('Successfully unregistered from event');
+        toast.success("Successfully unregistered from event");
       } else {
         await updateDoc(eventRef, {
-          registrations: arrayUnion(currentUser.uid)
+          registrations: arrayUnion(currentUser.uid),
         });
         setIsRegistered(true);
-        toast.success('Successfully registered for event!');
+        toast.success("Successfully registered for event!");
       }
-      
+
       onUpdate?.();
     } catch (error) {
-      console.error('Registration error:', error);
-      toast.error('Failed to update registration');
+      console.error("Registration error:", error);
+      toast.error("Failed to update registration");
     } finally {
       setLoading(false);
     }
@@ -57,19 +80,67 @@ const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
 
   const handleSetReminder = () => {
     if (!currentUser) {
-      toast.error('Please sign in to set reminders');
+      toast.error("Please sign in to set reminders");
       return;
     }
-    
-    // For now, just show a confirmation
-    toast.success('Reminder set! You will be notified before the event');
+    // Optimistic UI: show immediate feedback and capture id so we can replace it
+    const toastId = toast.loading("Setting reminder...");
+
+    // Send reminder email via local server endpoint (server should be running separately)
+    (async () => {
+      try {
+        // Add timeout in case the mail server isn't reachable
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const resp = await fetch(
+          (import.meta.env.DEV ? "http://localhost:5050" : "") +
+            "/api/send-reminder",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toEmail: userProfile?.email || currentUser.email,
+              toName: userProfile?.displayName || currentUser.displayName || "",
+              eventTitle: event.title,
+              eventDateISO: event.date.toISOString(),
+              eventLink:
+                event.howToRegisterLink || event.externalRegistrationLink || "",
+            }),
+            signal: controller.signal,
+          }
+        );
+        clearTimeout(timeout);
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.error("Reminder send failed", err);
+          toast.error("Failed to set reminder (email failed)", { id: toastId });
+          return;
+        }
+
+        toast.success("Reminder set! A notification email was sent", {
+          id: toastId,
+        });
+      } catch (error: any) {
+        console.error("Reminder error", error);
+        if (error.name === "AbortError") {
+          toast.error("Reminder request timed out", { id: toastId });
+        } else {
+          toast.error("Failed to set reminder", { id: toastId });
+        }
+      }
+    })();
   };
 
   return (
     <Card className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 flex flex-col">
       <div className="h-48 overflow-hidden">
-        <img 
-          src={event.bannerURL || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800'} 
+        <img
+          src={
+            event.bannerURL ||
+            "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800"
+          }
           alt={event.title}
           className="w-full h-full object-cover"
         />
@@ -95,13 +166,15 @@ const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
             ))}
           </div>
         )}
-        <CardDescription className="line-clamp-2">{event.description}</CardDescription>
+        <CardDescription className="line-clamp-2">
+          {event.description}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-between">
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            <span>{format(event.date, 'PPP')}</span>
+            <span>{format(event.date, "PPP")}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
@@ -129,46 +202,54 @@ const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
               <span>Prize: ₹{event.prizeAmount.toLocaleString()}</span>
             </div>
           )}
-          {event.contactInfo && (event.contactInfo.email || event.contactInfo.phone) && (
-            <div className="flex flex-col gap-1 text-sm text-muted-foreground pt-2 border-t">
-              {event.contactInfo.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <a href={`mailto:${event.contactInfo.email}`} className="hover:text-primary">
-                    {event.contactInfo.email}
-                  </a>
-                </div>
-              )}
-              {event.contactInfo.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  <a href={`tel:${event.contactInfo.phone}`} className="hover:text-primary">
-                    {event.contactInfo.phone}
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
+          {event.contactInfo &&
+            (event.contactInfo.email || event.contactInfo.phone) && (
+              <div className="flex flex-col gap-1 text-sm text-muted-foreground pt-2 border-t">
+                {event.contactInfo.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <a
+                      href={`mailto:${event.contactInfo.email}`}
+                      className="hover:text-primary"
+                    >
+                      {event.contactInfo.email}
+                    </a>
+                  </div>
+                )}
+                {event.contactInfo.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <a
+                      href={`tel:${event.contactInfo.phone}`}
+                      className="hover:text-primary"
+                    >
+                      {event.contactInfo.phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         {currentUser && (
           <div className="space-y-2">
             {event.externalRegistrationLink ? (
-              <Button 
-                asChild
-                className="w-full"
-              >
-                <a href={event.externalRegistrationLink} target="_blank" rel="noopener noreferrer">
+              <Button asChild className="w-full">
+                <a
+                  href={event.externalRegistrationLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Register <ExternalLink className="ml-2 h-4 w-4" />
                 </a>
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button 
-                  onClick={handleRegister} 
+                <Button
+                  onClick={handleRegister}
                   disabled={loading}
                   className="flex-1"
-                  variant={isRegistered ? 'outline' : 'default'}
+                  variant={isRegistered ? "outline" : "default"}
                 >
                   {isRegistered ? (
                     <>
@@ -176,11 +257,11 @@ const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
                       Registered
                     </>
                   ) : (
-                    'Register'
+                    "Register"
                   )}
                 </Button>
                 {isRegistered && (
-                  <Button 
+                  <Button
                     onClick={handleSetReminder}
                     variant="outline"
                     size="icon"
@@ -191,13 +272,12 @@ const EventCard: React.FC<EventCardProps> = ({ event, onUpdate }) => {
               </div>
             )}
             {event.howToRegisterLink && (
-              <Button 
-                asChild
-                variant="outline"
-                className="w-full"
-                size="sm"
-              >
-                <a href={event.howToRegisterLink} target="_blank" rel="noopener noreferrer">
+              <Button asChild variant="outline" className="w-full" size="sm">
+                <a
+                  href={event.howToRegisterLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   How to Register <ExternalLink className="ml-2 h-3 w-3" />
                 </a>
               </Button>

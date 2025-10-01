@@ -1,24 +1,30 @@
-import { useState } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { EventCategory } from '@/types';
+import { useState } from "react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { uploadImageToImgBB } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { EventCategory } from "@/types";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
-import { X } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { X } from "lucide-react";
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -26,33 +32,37 @@ interface CreateEventDialogProps {
   onSuccess: () => void;
 }
 
-const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChange, onSuccess }) => {
+const CreateEventDialog: React.FC<CreateEventDialogProps> = ({
+  open,
+  onOpenChange,
+  onSuccess,
+}) => {
   const { currentUser, userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  
+
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    date: '',
-    time: '',
-    location: '',
-    mapLink: '',
-    category: 'seminar' as EventCategory,
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    mapLink: "",
+    category: "seminar" as EventCategory,
     customCategories: [] as string[],
-    customCategoryInput: '',
+    customCategoryInput: "",
     entryFee: {
       isFree: true,
       amount: undefined as number | undefined,
     },
-    prizeAmount: '',
-    contactEmail: '',
-    contactPhone: '',
-    externalRegistrationLink: '',
-    instagramLink: '',
-    facebookLink: '',
-    youtubeLink: '',
-    howToRegisterLink: '',
+    prizeAmount: "",
+    contactEmail: "",
+    contactPhone: "",
+    externalRegistrationLink: "",
+    instagramLink: "",
+    facebookLink: "",
+    youtubeLink: "",
+    howToRegisterLink: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,17 +71,15 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
 
     setLoading(true);
     try {
-      let bannerURL = '';
-      
+      let bannerURL = "";
+
       // Upload banner if provided
       if (bannerFile) {
-        const storageRef = ref(storage, `event-banners/${Date.now()}_${bannerFile.name}`);
-        await uploadBytes(storageRef, bannerFile);
-        bannerURL = await getDownloadURL(storageRef);
+        bannerURL = await uploadImageToImgBB(bannerFile);
       }
 
       // Create event
-      await addDoc(collection(db, 'events'), {
+      await addDoc(collection(db, "events"), {
         title: formData.title,
         description: formData.description,
         date: new Date(formData.date),
@@ -79,7 +87,10 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
         location: formData.location,
         mapLink: formData.mapLink || null,
         category: formData.category,
-        categories: formData.customCategories.length > 0 ? formData.customCategories : null,
+        categories:
+          formData.customCategories.length > 0
+            ? formData.customCategories
+            : null,
         entryFee: {
           isFree: formData.entryFee.isFree,
           amount: formData.entryFee.isFree ? null : formData.entryFee.amount,
@@ -99,18 +110,18 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
         bannerURL,
         createdBy: currentUser.uid,
         createdByName: userProfile.displayName,
-        status: 'draft',
+        status: "draft",
         registrations: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      toast.success('Event created successfully!');
+      toast.success("Event created successfully!");
       onSuccess();
       resetForm();
     } catch (error) {
-      console.error('Create event error:', error);
-      toast.error('Failed to create event');
+      console.error("Create event error:", error);
+      toast.error("Failed to create event");
     } finally {
       setLoading(false);
     }
@@ -118,27 +129,27 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      description: '',
-      date: '',
-      time: '',
-      location: '',
-      mapLink: '',
-      category: 'seminar',
+      title: "",
+      description: "",
+      date: "",
+      time: "",
+      location: "",
+      mapLink: "",
+      category: "seminar",
       customCategories: [],
-      customCategoryInput: '',
+      customCategoryInput: "",
       entryFee: {
         isFree: true,
         amount: undefined,
       },
-      prizeAmount: '',
-      contactEmail: '',
-      contactPhone: '',
-      externalRegistrationLink: '',
-      instagramLink: '',
-      facebookLink: '',
-      youtubeLink: '',
-      howToRegisterLink: '',
+      prizeAmount: "",
+      contactEmail: "",
+      contactPhone: "",
+      externalRegistrationLink: "",
+      instagramLink: "",
+      facebookLink: "",
+      youtubeLink: "",
+      howToRegisterLink: "",
     });
     setBannerFile(null);
   };
@@ -147,8 +158,11 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
     if (formData.customCategoryInput.trim()) {
       setFormData({
         ...formData,
-        customCategories: [...formData.customCategories, formData.customCategoryInput.trim()],
-        customCategoryInput: '',
+        customCategories: [
+          ...formData.customCategories,
+          formData.customCategoryInput.trim(),
+        ],
+        customCategoryInput: "",
       });
     }
   };
@@ -176,7 +190,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               placeholder="e.g., Tech Workshop 2024"
               required
             />
@@ -187,7 +203,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="Describe your event..."
               rows={4}
               required
@@ -201,7 +219,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
                 id="date"
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
                 required
               />
             </div>
@@ -212,7 +232,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
                 id="time"
                 type="time"
                 value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, time: e.target.value })
+                }
                 required
               />
             </div>
@@ -223,7 +245,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <Input
               id="location"
               value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
               placeholder="e.g., Main Auditorium"
               required
             />
@@ -234,7 +258,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <Input
               id="mapLink"
               value={formData.mapLink}
-              onChange={(e) => setFormData({ ...formData, mapLink: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, mapLink: e.target.value })
+              }
               placeholder="https://maps.google.com/..."
               type="url"
             />
@@ -242,9 +268,11 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
 
           <div className="space-y-2">
             <Label htmlFor="category">Primary Category *</Label>
-            <Select 
-              value={formData.category} 
-              onValueChange={(value) => setFormData({ ...formData, category: value as EventCategory })}
+            <Select
+              value={formData.category}
+              onValueChange={(value) =>
+                setFormData({ ...formData, category: value as EventCategory })
+              }
             >
               <SelectTrigger>
                 <SelectValue />
@@ -266,18 +294,32 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <div className="flex gap-2">
               <Input
                 value={formData.customCategoryInput}
-                onChange={(e) => setFormData({ ...formData, customCategoryInput: e.target.value })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    customCategoryInput: e.target.value,
+                  })
+                }
                 placeholder="Add custom category"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomCategory())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addCustomCategory())
+                }
               />
-              <Button type="button" onClick={addCustomCategory} variant="outline">
+              <Button
+                type="button"
+                onClick={addCustomCategory}
+                variant="outline"
+              >
                 Add
               </Button>
             </div>
             {formData.customCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.customCategories.map((cat, index) => (
-                  <div key={index} className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md text-sm">
+                  <div
+                    key={index}
+                    className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-md text-sm"
+                  >
                     {cat}
                     <button
                       type="button"
@@ -301,7 +343,10 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
                 onCheckedChange={(checked) =>
                   setFormData({
                     ...formData,
-                    entryFee: { ...formData.entryFee, isFree: checked as boolean },
+                    entryFee: {
+                      ...formData.entryFee,
+                      isFree: checked as boolean,
+                    },
                   })
                 }
               />
@@ -312,11 +357,14 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             {!formData.entryFee.isFree && (
               <Input
                 type="number"
-                value={formData.entryFee.amount || ''}
+                value={formData.entryFee.amount || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    entryFee: { ...formData.entryFee, amount: Number(e.target.value) },
+                    entryFee: {
+                      ...formData.entryFee,
+                      amount: Number(e.target.value),
+                    },
                   })
                 }
                 placeholder="Enter amount"
@@ -329,7 +377,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
             <Textarea
               id="prizeAmount"
               value={formData.prizeAmount}
-              onChange={(e) => setFormData({ ...formData, prizeAmount: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, prizeAmount: e.target.value })
+              }
               placeholder="e.g., First: ₹10,000; Second: ₹5,000; Third: ₹2,000"
               rows={3}
             />
@@ -344,25 +394,36 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
               <Input
                 type="email"
                 value={formData.contactEmail}
-                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, contactEmail: e.target.value })
+                }
                 placeholder="Contact Email"
               />
               <Input
                 type="tel"
                 value={formData.contactPhone}
-                onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, contactPhone: e.target.value })
+                }
                 placeholder="Contact Phone"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="externalRegistrationLink">External Registration Link</Label>
+            <Label htmlFor="externalRegistrationLink">
+              External Registration Link
+            </Label>
             <Input
               id="externalRegistrationLink"
               type="url"
               value={formData.externalRegistrationLink}
-              onChange={(e) => setFormData({ ...formData, externalRegistrationLink: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  externalRegistrationLink: e.target.value,
+                })
+              }
               placeholder="https://..."
             />
           </div>
@@ -373,7 +434,9 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
               id="howToRegisterLink"
               type="url"
               value={formData.howToRegisterLink}
-              onChange={(e) => setFormData({ ...formData, howToRegisterLink: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, howToRegisterLink: e.target.value })
+              }
               placeholder="https://..."
             />
           </div>
@@ -384,19 +447,25 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
               <Input
                 type="url"
                 value={formData.instagramLink}
-                onChange={(e) => setFormData({ ...formData, instagramLink: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, instagramLink: e.target.value })
+                }
                 placeholder="Instagram URL"
               />
               <Input
                 type="url"
                 value={formData.facebookLink}
-                onChange={(e) => setFormData({ ...formData, facebookLink: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, facebookLink: e.target.value })
+                }
                 placeholder="Facebook URL"
               />
               <Input
                 type="url"
                 value={formData.youtubeLink}
-                onChange={(e) => setFormData({ ...formData, youtubeLink: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, youtubeLink: e.target.value })
+                }
                 placeholder="YouTube URL"
               />
             </div>
@@ -416,11 +485,16 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({ open, onOpenChang
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? 'Creating...' : 'Create Event'}
+              {loading ? "Creating..." : "Create Event"}
             </Button>
           </div>
         </form>

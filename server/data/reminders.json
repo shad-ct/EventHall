@@ -1,0 +1,162 @@
+[
+  {
+    "id": "1759299450707-36uthk",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "asdf",
+    "eventDateISO": "2025-10-02T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:17:30.707Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:18:30.617Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "c7a62cc5-a149-487b-91b0-22456793bad6",
+                "MessageID": 576460785008136700,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/576460785008136700"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "1759299577368-scvwr4",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "asdf",
+    "eventDateISO": "2025-10-02T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:19:37.368Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:20:30.426Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "36b5431d-9c34-4a52-9284-4121870f0210",
+                "MessageID": 288230408854591940,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/288230408854591945"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "1759299587774-07c8pa",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "lern",
+    "eventDateISO": "2025-10-02T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:19:47.774Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:20:30.953Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "18b0c35d-2662-4db1-863f-7f2295b37c44",
+                "MessageID": 576460785008166900,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/576460785008166953"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "1759299735683-xhgcc7",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "lern",
+    "eventDateISO": "2025-10-02T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:22:15.683Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:23:09.777Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "d92988fa-5102-44b9-81db-bc744a98e9fb",
+                "MessageID": 288230408854635900,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/288230408854635922"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "1759299745925-goy7t3",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "lern",
+    "eventDateISO": "2025-10-02T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:22:25.925Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:23:10.305Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "20310892-694d-4a1e-a3db-271268d05c1c",
+                "MessageID": 288230408854636100,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/288230408854636118"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
+  }
+]

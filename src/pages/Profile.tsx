@@ -1,24 +1,39 @@
-import { useState, useEffect } from 'react';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { updateProfile } from 'firebase/auth';
-import { db, storage } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { Event } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Calendar, Upload, User, Mail } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import {
+  doc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
+import { db } from "@/lib/firebase";
+import { uploadImageToImgBB } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Event } from "@/types";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Calendar, Upload, User, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 const Profile = () => {
   const { currentUser, userProfile, refreshProfile } = useAuth();
-  const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
+  const [displayName, setDisplayName] = useState(
+    userProfile?.displayName || ""
+  );
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [registeredEvents, setRegisteredEvents] = useState<Event[]>([]);
@@ -38,12 +53,12 @@ const Profile = () => {
 
     try {
       const eventsQuery = query(
-        collection(db, 'events'),
-        where('registrations', 'array-contains', currentUser.uid)
+        collection(db, "events"),
+        where("registrations", "array-contains", currentUser.uid)
       );
-      
+
       const snapshot = await getDocs(eventsQuery);
-      const eventsData = snapshot.docs.map(doc => {
+      const eventsData = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -53,10 +68,10 @@ const Profile = () => {
           updatedAt: data.updatedAt.toDate(),
         } as Event;
       });
-      
+
       setRegisteredEvents(eventsData);
     } catch (error) {
-      console.error('Error fetching registered events:', error);
+      console.error("Error fetching registered events:", error);
     }
   };
 
@@ -67,16 +82,16 @@ const Profile = () => {
     setLoading(true);
     try {
       await updateProfile(currentUser, { displayName });
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      await updateDoc(doc(db, "users", currentUser.uid), {
         displayName,
         updatedAt: new Date(),
       });
-      
+
       await refreshProfile();
-      toast.success('Profile updated successfully!');
+      toast.success("Profile updated successfully!");
     } catch (error) {
-      console.error('Update error:', error);
-      toast.error('Failed to update profile');
+      console.error("Update error:", error);
+      toast.error("Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -87,27 +102,26 @@ const Profile = () => {
     if (!file || !currentUser) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+      toast.error("File size must be less than 5MB");
       return;
     }
 
     setUploading(true);
     try {
-      const storageRef = ref(storage, `avatars/${currentUser.uid}`);
-      await uploadBytes(storageRef, file);
-      const photoURL = await getDownloadURL(storageRef);
-      
+      // Upload avatar to ImgBB and use returned URL
+      const photoURL = await uploadImageToImgBB(file);
+
       await updateProfile(currentUser, { photoURL });
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      await updateDoc(doc(db, "users", currentUser.uid), {
         photoURL,
         updatedAt: new Date(),
       });
-      
+
       await refreshProfile();
-      toast.success('Avatar updated successfully!');
+      toast.success("Avatar updated successfully!");
     } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload avatar');
+      console.error("Upload error:", error);
+      toast.error("Failed to upload avatar");
     } finally {
       setUploading(false);
     }
@@ -123,21 +137,26 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your profile details and avatar</CardDescription>
+              <CardDescription>
+                Update your profile details and avatar
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={userProfile?.photoURL} alt={userProfile?.displayName} />
+                  <AvatarImage
+                    src={userProfile?.photoURL}
+                    alt={userProfile?.displayName}
+                  />
                   <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                    {userProfile?.displayName?.[0]?.toUpperCase() || 'U'}
+                    {userProfile?.displayName?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <Label htmlFor="avatar" className="cursor-pointer">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <Upload className="h-4 w-4" />
-                      {uploading ? 'Uploading...' : 'Change Avatar'}
+                      {uploading ? "Uploading..." : "Change Avatar"}
                     </div>
                   </Label>
                   <Input
@@ -148,7 +167,9 @@ const Profile = () => {
                     disabled={uploading}
                     className="hidden"
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG or WEBP (max 5MB)</p>
+                  <p className="text-xs text-muted-foreground">
+                    JPG, PNG or WEBP (max 5MB)
+                  </p>
                 </div>
               </div>
 
@@ -179,7 +200,7 @@ const Profile = () => {
                 </div>
 
                 <Button type="submit" disabled={loading}>
-                  {loading ? 'Updating...' : 'Update Profile'}
+                  {loading ? "Updating..." : "Update Profile"}
                 </Button>
               </form>
             </CardContent>
@@ -201,14 +222,19 @@ const Profile = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {registeredEvents.map(event => (
-                    <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {registeredEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
                       <div className="flex-1">
                         <h4 className="font-semibold">{event.title}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {format(event.date, 'PPP')} at {event.time}
+                          {format(event.date, "PPP")} at {event.time}
                         </p>
-                        <p className="text-sm text-muted-foreground">{event.location}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {event.location}
+                        </p>
                       </div>
                       <Badge className="capitalize">{event.category}</Badge>
                     </div>
