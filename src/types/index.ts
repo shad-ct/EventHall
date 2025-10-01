@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'lowLevelAdmin' | 'ultimateAdmin';
+export type UserRole = "user" | "lowLevelAdmin" | "ultimateAdmin";
 
 export interface UserProfile {
   uid: string;
@@ -16,13 +16,20 @@ export interface AdminRequest {
   userName: string;
   userEmail: string;
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   createdAt: Date;
   reviewedAt?: Date;
   reviewedBy?: string;
 }
 
-export type EventCategory = 'seminar' | 'fest' | 'workshop' | 'competition' | 'cultural' | 'sports' | 'other';
+export type EventCategory =
+  | "seminar"
+  | "fest"
+  | "workshop"
+  | "competition"
+  | "cultural"
+  | "sports"
+  | "other";
 
 export interface Event {
   id: string;
@@ -32,6 +39,7 @@ export interface Event {
   time: string;
   location: string;
   mapLink?: string;
+  district?: string;
   bannerURL: string;
   category: EventCategory;
   categories?: string[];
@@ -54,7 +62,7 @@ export interface Event {
   howToRegisterLink?: string;
   createdBy: string;
   createdByName: string;
-  status: 'draft' | 'published';
+  status: "draft" | "published";
   createdAt: Date;
   updatedAt: Date;
   registrations?: string[];

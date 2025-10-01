@@ -47,6 +47,7 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({
     date: "",
     time: "",
     location: "",
+    district: "",
     mapLink: "",
     category: "seminar" as EventCategory,
     customCategories: [] as string[],
@@ -85,6 +86,7 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({
         date: new Date(formData.date),
         time: formData.time,
         location: formData.location,
+        district: formData.district || null,
         mapLink: formData.mapLink || null,
         category: formData.category,
         categories:
@@ -134,6 +136,7 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({
       date: "",
       time: "",
       location: "",
+      district: "",
       mapLink: "",
       category: "seminar",
       customCategories: [],
@@ -251,6 +254,38 @@ const CreateEventDialog: React.FC<CreateEventDialogProps> = ({
               placeholder="e.g., Main Auditorium"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="district">District *</Label>
+            <Select
+              value={formData.district}
+              onValueChange={(value) =>
+                setFormData({ ...formData, district: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select district" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Thiruvananthapuram">
+                  Thiruvananthapuram
+                </SelectItem>
+                <SelectItem value="Kollam">Kollam</SelectItem>
+                <SelectItem value="Pathanamthitta">Pathanamthitta</SelectItem>
+                <SelectItem value="Alappuzha">Alappuzha</SelectItem>
+                <SelectItem value="Kottayam">Kottayam</SelectItem>
+                <SelectItem value="Idukki">Idukki</SelectItem>
+                <SelectItem value="Ernakulam">Ernakulam</SelectItem>
+                <SelectItem value="Thrissur">Thrissur</SelectItem>
+                <SelectItem value="Palakkad">Palakkad</SelectItem>
+                <SelectItem value="Malappuram">Malappuram</SelectItem>
+                <SelectItem value="Kozhikode">Kozhikode</SelectItem>
+                <SelectItem value="Wayanad">Wayanad</SelectItem>
+                <SelectItem value="Kannur">Kannur</SelectItem>
+                <SelectItem value="Kasaragod">Kasaragod</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

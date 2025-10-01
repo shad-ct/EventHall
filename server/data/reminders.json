@@ -158,5 +158,37 @@
         ]
       }
     }
+  },
+  {
+    "id": "1759300401888-uwoj39",
+    "toEmail": "muhammedshad9895@gmail.com",
+    "toName": "Shad",
+    "eventTitle": "lkjklasfdzxcv",
+    "eventDateISO": "2025-10-01T00:00:00.000Z",
+    "eventLink": "",
+    "createdAt": "2025-10-01T06:33:21.889Z",
+    "sent": true,
+    "sentAt": "2025-10-01T06:34:09.757Z",
+    "result": {
+      "ok": true,
+      "data": {
+        "Messages": [
+          {
+            "Status": "success",
+            "CustomID": "",
+            "To": [
+              {
+                "Email": "muhammedshad9895@gmail.com",
+                "MessageUUID": "2980e4bd-9dbc-46d3-bd38-0b3ac0a91e6b",
+                "MessageID": 288230408854840260,
+                "MessageHref": "https://api.mailjet.com/v3/REST/message/288230408854840243"
+              }
+            ],
+            "Cc": [],
+            "Bcc": []
+          }
+        ]
+      }
+    }
   }
 ]
