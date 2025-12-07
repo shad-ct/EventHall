@@ -10,7 +10,6 @@ import { EventDetailPage } from './pages/EventDetailPage';
 import { AdminEventsPage } from './pages/AdminEventsPage';
 import { EventFormPage } from './pages/EventFormPage';
 import { UltimateAdminPage } from './pages/UltimateAdminPage';
-import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
 // Protected Route wrapper
@@ -166,8 +165,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Demo Admin Routes (Hidden) */}
-      <Route path="/admin" element={<AdminLoginPage />} />
+      {/* Demo Admin Dashboard Route (Hidden) */}
       <Route path="/admin-demo" element={<AdminDashboardPage />} />
 
       {/* Fallback */}
