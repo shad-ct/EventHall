@@ -1,13 +1,17 @@
-import { Home, Search, User } from 'lucide-react';
+import { Home, Search, User, Plus } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'EVENT_ADMIN' || user?.role === 'ULTIMATE_ADMIN';
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Search', path: '/search' },
+    ...(isAdmin ? [{ icon: Plus, label: 'Add Event', path: '/event/new' }] : []),
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 
