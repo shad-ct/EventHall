@@ -19,6 +19,11 @@ import {
   getUserEvents as fsGetUserEvents,
   checkInteractions as fsCheckInteractions,
   getCategories,
+  getAdminApplications,
+  reviewAdminApplication,
+  getPendingEvents,
+  updateEventAdminStatus,
+  getAllUsers,
 } from './firestore';
 
 export const authAPI = {
@@ -55,24 +60,14 @@ export const adminAPI = {
     // For now, return success response to avoid throwing
     return { success: true, message: 'Application submitted. Admin will review soon.' };
   },
-  getApplications: async (_status?: string) => {
-    throw new Error('Admin features need Firestore migration');
-  },
-  reviewApplication: async (_id: string, _status: 'APPROVED' | 'REJECTED') => {
-    throw new Error('Admin features need Firestore migration');
-  },
-  getPendingEvents: async () => {
-    throw new Error('Admin features need Firestore migration');
-  },
+  getApplications: getAdminApplications,
+  reviewApplication: reviewAdminApplication,
+  getPendingEvents: getPendingEvents,
   getAllEvents: async (_status?: string) => {
     throw new Error('Admin features need Firestore migration');
   },
-  updateEventStatus: async (_id: string, _status: string, _rejectionReason?: string) => {
-    throw new Error('Admin features need Firestore migration');
-  },
-  getUsers: async (_role?: string) => {
-    throw new Error('Admin features need Firestore migration');
-  },
+  updateEventStatus: updateEventAdminStatus,
+  getUsers: getAllUsers,
 };
 
 export default {};

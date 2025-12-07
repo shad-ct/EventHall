@@ -238,3 +238,48 @@ export const checkInteractions = async (_eventIds: string[]): Promise<any> => {
   // TODO: Implement Firestore interaction checks
   return { likedEventIds: [], registeredEventIds: [] };
 };
+
+/**
+ * Admin Collection Operations - Stubs for now
+ * Full admin features will be migrated to Firestore soon
+ */
+
+/**
+ * Get admin applications
+ */
+export const getAdminApplications = async (_status?: string): Promise<any> => {
+  // TODO: Implement Firestore admin applications query
+  return { applications: [] };
+};
+
+/**
+ * Review admin application
+ */
+export const reviewAdminApplication = async (_id: string, _status: 'APPROVED' | 'REJECTED'): Promise<any> => {
+  // TODO: Implement Firestore admin application review
+  return { success: true };
+};
+
+/**
+ * Get pending events for admin review
+ */
+export const getPendingEvents = async (): Promise<any> => {
+  // TODO: Implement Firestore pending events query
+  return { events: [] };
+};
+
+/**
+ * Update event status
+ */
+export const updateEventAdminStatus = async (_id: string, _status: string, _rejectionReason?: string): Promise<any> => {
+  // TODO: Implement Firestore event status update
+  return { success: true };
+};
+
+/**
+ * Get all users (for admin)
+ */
+export const getAllUsers = async (_role?: string): Promise<any> => {
+  // TODO: Implement Firestore users query
+  return { users: [] };
+};
