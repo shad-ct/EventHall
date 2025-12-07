@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { userAPI } from '../lib/api';
 import { Event } from '../types';
 import { EventCard } from '../components/EventCard';
+import { BottomNav } from '../components/BottomNav';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 
 export const AdminEventsPage: React.FC = () => {
@@ -56,7 +57,7 @@ export const AdminEventsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-40">
         <div className="max-w-6xl mx-auto p-4">
@@ -145,6 +146,8 @@ export const AdminEventsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <BottomNav />
     </div>
   );
 };

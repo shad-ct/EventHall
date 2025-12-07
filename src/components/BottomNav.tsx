@@ -11,7 +11,7 @@ export const BottomNav: React.FC = () => {
   const navItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Search', path: '/search' },
-    ...(isAdmin ? [{ icon: Plus, label: 'Add Event', path: '/admin/events/create' }] : []),
+    ...(isAdmin ? [{ icon: Plus, label: 'My Events', path: '/admin/events' }] : []),
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 
