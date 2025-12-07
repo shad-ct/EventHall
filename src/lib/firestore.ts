@@ -324,21 +324,23 @@ export const likeEvent = async (eventId: string): Promise<any> => {
   const likeRef = doc(db, 'likes', `${currentUser.uid}_${eventId}`);
   const likeSnap = await getDoc(likeRef);
 
-  if (likeSnap.exists()) {
-    // Unlike - remove the like
+  if (likeSnap.exists() && likeSnap.data().deleted === false) {
+    // Unlike - mark as deleted
     await updateDoc(likeRef, {
       deleted: true,
       deletedAt: serverTimestamp(),
     });
+    console.log(`Unliked event ${eventId}`);
     return { success: true, liked: false };
   } else {
-    // Like - create the like
+    // Like - create or undelete the like
     await setDoc(likeRef, {
       userId: currentUser.uid,
       eventId,
       createdAt: serverTimestamp(),
       deleted: false,
-    });
+    }, { merge: true });
+    console.log(`Liked event ${eventId}`);
     return { success: true, liked: true };
   }
 };
@@ -437,8 +439,10 @@ export const getLikedEvents = async (): Promise<any> => {
     where('deleted', '==', false)
   );
   const querySnapshot = await getDocs(q);
+  console.log(`Found ${querySnapshot.docs.length} liked events for user ${currentUser.uid}`);
 
   const eventIds = querySnapshot.docs.map(doc => doc.data().eventId);
+  console.log('Liked event IDs:', eventIds);
 
   if (eventIds.length === 0) {
     return { events: [] };
@@ -473,6 +477,7 @@ export const getLikedEvents = async (): Promise<any> => {
     }
   }
 
+  console.log(`Returning ${events.length} liked events`);
   return { events };
 };
 
