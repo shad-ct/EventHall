@@ -22,8 +22,9 @@ export const EventFormPage: React.FC = () => {
   const [location, setLocation] = useState('');
   const [district, setDistrict] = useState('');
   const [googleMapsLink, setGoogleMapsLink] = useState('');
-  const [primaryCategoryId, setPrimaryCategoryId] = useState('');
-  const [additionalCategoryIds, setAdditionalCategoryIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [customCategoryTags, setCustomCategoryTags] = useState<string[]>([]);
+  const [categoryTagInput, setCategoryTagInput] = useState('');
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [entryFee, setEntryFee] = useState('');
@@ -61,8 +62,7 @@ export const EventFormPage: React.FC = () => {
           setLocation(event.location);
           setDistrict(event.district);
           setGoogleMapsLink(event.googleMapsLink || '');
-          setPrimaryCategoryId(event.primaryCategory.id);
-          setAdditionalCategoryIds(event.additionalCategories?.map((ac: any) => ac.category.id) || []);
+          setSelectedCategoryIds([event.primaryCategory.id, ...(event.additionalCategories?.map((ac: any) => ac.category.id) || [])]);
           setEntryFee(event.entryFee || '');
           setIsFree(event.isFree);
           setPrizeDetails(event.prizeDetails || '');
@@ -83,9 +83,24 @@ export const EventFormPage: React.FC = () => {
   }, [id, isEdit]);
 
   const toggleAdditionalCategory = (catId: string) => {
-    setAdditionalCategoryIds(prev =>
+    setSelectedCategoryIds(prev =>
       prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
     );
+  };
+
+  const handleAddCategoryTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && categoryTagInput.trim()) {
+      e.preventDefault();
+      const newTag = categoryTagInput.trim().toLowerCase();
+      if (!customCategoryTags.includes(newTag)) {
+        setCustomCategoryTags([...customCategoryTags, newTag]);
+      }
+      setCategoryTagInput('');
+    }
+  };
+
+  const removeCategoryTag = (tag: string) => {
+    setCustomCategoryTags(customCategoryTags.filter(t => t !== tag));
   };
 
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -117,8 +132,9 @@ export const EventFormPage: React.FC = () => {
         location,
         district,
         googleMapsLink: googleMapsLink || undefined,
-        primaryCategoryId,
-        additionalCategoryIds: additionalCategoryIds.length > 0 ? additionalCategoryIds : undefined,
+        primaryCategoryId: selectedCategoryIds[0] || undefined,
+        additionalCategoryIds: selectedCategoryIds.slice(1).length > 0 ? selectedCategoryIds.slice(1) : undefined,
+        customCategories: customCategoryTags.length > 0 ? customCategoryTags : undefined,
         entryFee: isFree ? undefined : entryFee,
         isFree,
         prizeDetails: prizeDetails || undefined,
@@ -130,6 +146,7 @@ export const EventFormPage: React.FC = () => {
         facebookUrl: facebookUrl || undefined,
         youtubeUrl: youtubeUrl || undefined,
         bannerUrl: bannerUrl || undefined,
+        customTags: customTags.length > 0 ? customTags : undefined,
       };
 
       if (isEdit && id) {
@@ -294,37 +311,20 @@ export const EventFormPage: React.FC = () => {
 
             {/* Categories */}
             <div className="space-y-4 pt-6 border-t">
-              <h3 className="text-lg font-semibold text-gray-900">Categories</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Event Categories *</h3>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Primary Category *
-                </label>
-                <select
-                  value={primaryCategoryId}
-                  onChange={(e) => setPrimaryCategoryId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional Categories (Tags)
+                  Select from Predefined Categories
                 </label>
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
-                  {categories.filter(c => c.id !== primaryCategoryId).map((category) => (
+                  {categories.map((category) => (
                     <button
                       key={category.id}
                       type="button"
                       onClick={() => toggleAdditionalCategory(category.id)}
                       className={`py-1 px-2 rounded-lg border-2 text-xs transition-colors ${
-                        additionalCategoryIds.includes(category.id)
+                        selectedCategoryIds.includes(category.id)
                           ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
                       }`}
@@ -337,28 +337,28 @@ export const EventFormPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Custom Tags
+                  Add Custom Categories
                 </label>
                 <input
                   type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleAddTag}
-                  placeholder="Type a tag and press Enter..."
+                  value={categoryTagInput}
+                  onChange={(e) => setCategoryTagInput(e.target.value)}
+                  onKeyDown={handleAddCategoryTag}
+                  placeholder="Type a category and press Enter..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
                 />
-                {customTags.length > 0 && (
+                {customCategoryTags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {customTags.map((tag) => (
+                    {customCategoryTags.map((tag) => (
                       <span
                         key={tag}
-                        className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+                        className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm flex items-center gap-2"
                       >
                         {tag}
                         <button
                           type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-purple-900"
+                          onClick={() => removeCategoryTag(tag)}
+                          className="hover:text-indigo-900"
                         >
                           <X className="w-4 h-4" />
                         </button>
