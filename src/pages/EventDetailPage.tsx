@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
+import { mockCategories } from '../lib/firestore';
 import { Event } from '../types';
 import { ArrowLeft, MapPin, Calendar, Users, Heart, ExternalLink, Phone, Mail, Instagram, Facebook, Youtube } from 'lucide-react';
 
@@ -127,13 +128,21 @@ export const EventDetailPage: React.FC = () => {
         {/* Main Content */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           {/* Category & Status */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium">
-              {event.primaryCategory.name}
+              {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
             </span>
-            {event.additionalCategories?.map(ac => (
-              <span key={ac.category.id} className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                {ac.category.name}
+            {(event as any).additionalCategoryIds?.map((catId: string) => {
+              const category = mockCategories.find(c => c.id === catId);
+              return category ? (
+                <span key={catId} className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
+                  {category.name}
+                </span>
+              ) : null;
+            })}
+            {(event as any).customCategories?.map((catName: string, idx: number) => (
+              <span key={`custom-${idx}`} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
+                {catName}
               </span>
             ))}
             {event.isFree && (
