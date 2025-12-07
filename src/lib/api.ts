@@ -11,10 +11,19 @@ const apiClient = axios.create({
 
 // Add auth token to requests
 apiClient.interceptors.request.use(async (config) => {
-  // In mock mode, use localStorage token
-  const mockToken = localStorage.getItem('mockAuthToken');
-  if (mockToken) {
-    config.headers.Authorization = `Bearer ${mockToken}`;
+  // Check if guest mode
+  const guestData = localStorage.getItem('guestUser');
+  if (guestData) {
+    // Guest users don't make authenticated API calls
+    return config;
+  }
+  
+  // For authenticated users, add Firebase token
+  const { auth } = await import('./firebase');
+  const user = auth.currentUser;
+  if (user) {
+    const token = await user.getIdToken();
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

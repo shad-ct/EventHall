@@ -1,17 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
-import { userAPI } from '../lib/api';
+import { User as FirebaseUser, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { auth, googleProvider } from '../lib/firebase';
+import { authAPI, userAPI } from '../lib/api';
 import { User } from '../types';
-
-// DEVELOPMENT MODE: Using mock auth instead of Firebase
-const DEFAULT_EMAIL = 'muhammedshad9895@gmail.com';
-const MOCK_TOKEN = 'mock-dev-token-for-testing';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   needsProfileCompletion: boolean;
@@ -33,45 +31,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
-  // Initialize with default user in development
+  // Listen to Firebase auth state changes
   useEffect(() => {
-    const initializeMockUser = async () => {
-      try {
-        // Create mock profile for development
-        const mockUser: User = {
-          id: 'mock-user-dev',
-          firebaseUid: 'mock-firebase-uid',
-          email: DEFAULT_EMAIL,
-          fullName: 'Developer User',
-          role: 'ULTIMATE_ADMIN',
-          collegeName: 'Test College',
-          isStudent: true,
-          interests: [
-            { id: '1', category: { id: 'cat1', name: 'Hackathon', slug: 'hackathon' } },
-            { id: '2', category: { id: 'cat2', name: 'Workshop', slug: 'workshop' } },
-            { id: '3', category: { id: 'cat3', name: 'Technical Talk', slug: 'technical-talk' } },
-          ],
-        };
-        
-        // Set token in localStorage for API requests
-        localStorage.setItem('mockAuthToken', MOCK_TOKEN);
-        
-        setUser(mockUser);
-        setNeedsProfileCompletion(false);
-      } catch (error) {
-        console.error('Failed to initialize mock user:', error);
-      } finally {
-        setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFirebaseUser(firebaseUser);
+      
+      if (firebaseUser) {
+        try {
+          // Get ID token and sync with backend
+          const idToken = await firebaseUser.getIdToken();
+          const data = await authAPI.syncUser(idToken);
+          setUser(data.user);
+          setNeedsProfileCompletion(!data.user.fullName || !data.user.interests || data.user.interests.length === 0);
+        } catch (error) {
+          console.error('Failed to sync user with backend:', error);
+          setUser(null);
+        }
+      } else {
+        // Check for guest mode
+        const guestData = localStorage.getItem('guestUser');
+        if (guestData) {
+          try {
+            setUser(JSON.parse(guestData));
+          } catch (error) {
+            console.error('Failed to load guest user:', error);
+            localStorage.removeItem('guestUser');
+          }
+        } else {
+          setUser(null);
+        }
       }
-    };
+      
+      setLoading(false);
+    });
 
-    initializeMockUser();
+    return () => unsubscribe();
   }, []);
 
   const refreshUser = async () => {
     try {
-      if (user) {
-        // In mock mode, just refresh local state
+      if (user?.id.startsWith('guest-')) {
+        // Guest user - refresh from localStorage
+        const guestData = localStorage.getItem('guestUser');
+        if (guestData) {
+          setUser(JSON.parse(guestData));
+        }
+      } else if (firebaseUser) {
+        // Real user - refresh from backend
         const data = await userAPI.getProfile();
         setUser(data.user);
         setNeedsProfileCompletion(!data.user.interests || data.user.interests.length === 0);
@@ -84,24 +90,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      // In mock mode, just set the user
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockUser: User = {
-        id: 'mock-user-dev',
-        firebaseUid: 'mock-firebase-uid',
-        email: DEFAULT_EMAIL,
-        fullName: 'Developer User',
-        role: 'ULTIMATE_ADMIN',
-        collegeName: 'Test College',
-        isStudent: true,
-        interests: [
-          { id: '1', category: { id: 'cat1', name: 'Hackathon', slug: 'hackathon' } },
-          { id: '2', category: { id: 'cat2', name: 'Workshop', slug: 'workshop' } },
-          { id: '3', category: { id: 'cat3', name: 'Technical Talk', slug: 'technical-talk' } },
-        ],
-      };
-      setUser(mockUser);
-      setNeedsProfileCompletion(false);
+      // Clear any guest data
+      localStorage.removeItem('guestUser');
+      
+      // Sign in with Google
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      
+      // Sync with backend
+      const data = await authAPI.syncUser(idToken);
+      setUser(data.user);
+      setFirebaseUser(result.user);
+      setNeedsProfileCompletion(!data.user.fullName || !data.user.interests || data.user.interests.length === 0);
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -110,9 +110,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInAsGuest = async () => {
+    try {
+      setLoading(true);
+      
+      // Create guest user
+      const guestUser: User = {
+        id: `guest-${Date.now()}`,
+        firebaseUid: 'guest',
+        email: 'guest@eventhall.local',
+        fullName: 'Guest User',
+        role: 'GUEST',
+        collegeName: null,
+        isStudent: null,
+        interests: [],
+      } as User;
+      
+      // Store in localStorage
+      localStorage.setItem('guestUser', JSON.stringify(guestUser));
+      setUser(guestUser);
+      setNeedsProfileCompletion(false);
+    } catch (error) {
+      console.error('Guest sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     try {
-      localStorage.removeItem('mockAuthToken');
+      // Clear guest data
+      localStorage.removeItem('guestUser');
+      
+      // Sign out from Firebase if logged in
+      if (firebaseUser) {
+        await firebaseSignOut(auth);
+      }
+      
       setUser(null);
       setFirebaseUser(null);
       setNeedsProfileCompletion(false);
@@ -129,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         firebaseUser,
         loading,
         signInWithGoogle,
+        signInAsGuest,
         signOut,
         refreshUser,
         needsProfileCompletion,
