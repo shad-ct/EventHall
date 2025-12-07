@@ -1,7 +1,7 @@
 import { Heart, MapPin, Calendar, Users } from 'lucide-react';
 import { Event } from '../types';
 import { eventAPI } from '../lib/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { mockCategories } from '../lib/firestore';
 
 interface EventCardProps {
@@ -21,6 +21,11 @@ export const EventCard: React.FC<EventCardProps> = ({
 }) => {
   const [liked, setLiked] = useState(isLiked);
   const [liking, setLiking] = useState(false);
+
+  // Sync internal state with prop changes
+  useEffect(() => {
+    setLiked(isLiked);
+  }, [isLiked]);
 
   const formatDate = (dateStr: string, timeStr: string) => {
     const date = new Date(dateStr);
