@@ -47,11 +47,11 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <div
-      className="bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow h-[420px] flex flex-col"
       onClick={onClick}
     >
       {/* Banner Image */}
-      <div className="relative h-40 bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden">
+      <div className="relative h-44 bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex-shrink-0">
         {event.bannerUrl ? (
           <img
             src={event.bannerUrl}
@@ -84,15 +84,15 @@ export const EventCard: React.FC<EventCardProps> = ({
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-4 flex-1 flex flex-col">
         {/* Date & Time */}
         <div className="flex items-center text-xs text-gray-600 mb-2">
-          <Calendar className="w-3.5 h-3.5 mr-1" />
-          {formatDate(event.date, event.time)}
+          <Calendar className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+          <span className="truncate">{formatDate(event.date, event.time)}</span>
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{event.title}</h3>
+        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">{event.title}</h3>
 
         {/* Location */}
         <div className="flex items-start text-sm text-gray-600 mb-3">
@@ -101,8 +101,8 @@ export const EventCard: React.FC<EventCardProps> = ({
         </div>
 
         {/* Category & Stats */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium truncate max-w-[60%]">
             {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
           </span>
           
@@ -115,11 +115,13 @@ export const EventCard: React.FC<EventCardProps> = ({
         </div>
 
         {/* Free/Paid Badge */}
-        {event.isFree && (
-          <div className="mt-2 inline-block text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
-            Free Entry
-          </div>
-        )}
+        <div className="mt-auto">
+          {event.isFree && (
+            <span className="inline-block text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
+              Free Entry
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

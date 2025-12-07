@@ -136,9 +136,9 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 {/* Horizontal Scroll of Event Cards */}
-                <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth">
+                <div className="flex overflow-x-auto gap-5 pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth">
                   {events.map((event) => (
-                    <div key={event.id} className="flex-shrink-0 w-80 snap-start">
+                    <div key={event.id} className="flex-shrink-0 w-[320px] snap-start">
                       <EventCard
                         event={event}
                         isLiked={likedEventIds.includes(event.id)}
