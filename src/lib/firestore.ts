@@ -249,11 +249,15 @@ export const createEvent = async (eventData: any): Promise<any> => {
     throw new Error('Not authenticated');
   }
 
+  // Get user to check role
+  const userDoc = await getUser(currentUser.uid);
+  const isUltimateAdmin = userDoc?.role === 'ULTIMATE_ADMIN';
+
   const eventsRef = collection(db, 'events');
   
   const newEvent = {
     ...eventData,
-    status: 'PUBLISHED', // Auto-publish for now, can add approval flow later
+    status: isUltimateAdmin ? 'PUBLISHED' : 'PENDING_APPROVAL', // Ultimate admin events auto-publish
     createdBy: {
       id: currentUser.uid,
       fullName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
@@ -265,14 +269,40 @@ export const createEvent = async (eventData: any): Promise<any> => {
 
   const docRef = await addDoc(eventsRef, newEvent);
   
-  return { success: true, message: 'Event created successfully', eventId: docRef.id };
+  return { 
+    success: true, 
+    message: isUltimateAdmin ? 'Event published successfully' : 'Event submitted for approval', 
+    eventId: docRef.id 
+  };
 };
 
 /**
  * Update event
  */
 export const updateEvent = async (id: string, eventData: any): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Get the event to check ownership
   const eventRef = doc(db, 'events', id);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+
+  const event = eventSnap.data();
+  const userDoc = await getUser(currentUser.uid);
+  
+  // Check if user is the creator or ultimate admin
+  const isCreator = event.createdBy?.id === currentUser.uid;
+  const isUltimateAdmin = userDoc?.role === 'ULTIMATE_ADMIN';
+
+  if (!isCreator && !isUltimateAdmin) {
+    throw new Error('Unauthorized - You can only edit your own events');
+  }
   
   await updateDoc(eventRef, {
     ...eventData,
@@ -368,16 +398,118 @@ export const reviewAdminApplication = async (_id: string, _status: 'APPROVED' | 
  * Get pending events for admin review
  */
 export const getPendingEvents = async (): Promise<any> => {
-  // TODO: Implement Firestore pending events query
-  return { events: [] };
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventsRef = collection(db, 'events');
+  const q = query(eventsRef, where('status', '==', 'PENDING_APPROVAL'));
+  const snapshot = await getDocs(q);
+  
+  const events = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return { events };
 };
 
 /**
- * Update event status
+ * Update event status (approve/reject)
  */
-export const updateEventAdminStatus = async (_id: string, _status: string, _rejectionReason?: string): Promise<any> => {
-  // TODO: Implement Firestore event status update
-  return { success: true };
+export const updateEventAdminStatus = async (eventId: string, status: string, rejectionReason?: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventRef = doc(db, 'events', eventId);
+  const updateData: any = {
+    status,
+    updatedAt: serverTimestamp(),
+    reviewedBy: currentUser.uid,
+    reviewedAt: serverTimestamp(),
+  };
+
+  if (rejectionReason) {
+    updateData.rejectionReason = rejectionReason;
+  }
+
+  await updateDoc(eventRef, updateData);
+
+  return { success: true, message: `Event ${status.toLowerCase()} successfully` };
+};
+
+/**
+ * Delete event (Ultimate admin only)
+ */
+export const deleteEvent = async (eventId: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventRef = doc(db, 'events', eventId);
+  await updateDoc(eventRef, {
+    status: 'ARCHIVED',
+    archivedAt: serverTimestamp(),
+    archivedBy: currentUser.uid,
+  });
+
+  return { success: true, message: 'Event deleted successfully' };
+};
+
+/**
+ * Get all events (admin view with all statuses)
+ */
+export const getAllEvents = async (statusFilter?: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventsRef = collection(db, 'events');
+  let q;
+  
+  if (statusFilter) {
+    q = query(eventsRef, where('status', '==', statusFilter));
+  } else {
+    q = query(eventsRef);
+  }
+
+  const snapshot = await getDocs(q);
+  
+  const events = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return { events };
 };
 
 /**

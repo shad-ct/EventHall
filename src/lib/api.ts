@@ -24,6 +24,8 @@ import {
   getPendingEvents,
   updateEventAdminStatus,
   getAllUsers,
+  getAllEvents,
+  deleteEvent,
 } from './firestore';
 
 export const authAPI = {
@@ -63,10 +65,9 @@ export const adminAPI = {
   getApplications: getAdminApplications,
   reviewApplication: reviewAdminApplication,
   getPendingEvents: getPendingEvents,
-  getAllEvents: async (_status?: string) => {
-    throw new Error('Admin features need Firestore migration');
-  },
+  getAllEvents: getAllEvents,
   updateEventStatus: updateEventAdminStatus,
+  deleteEvent: deleteEvent,
   getUsers: getAllUsers,
 };
 

@@ -6,14 +6,22 @@ import { ArrowLeft, Check, X, Calendar } from 'lucide-react';
 
 export const UltimateAdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'applications' | 'events'>('applications');
+  const [activeTab, setActiveTab] = useState<'applications' | 'events' | 'allEvents'>('applications');
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [pendingEvents, setPendingEvents] = useState<Event[]>([]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'allEvents') {
+      fetchAllEvents();
+    }
+  }, [activeTab, statusFilter]);
 
   const fetchData = async () => {
     try {
@@ -26,6 +34,18 @@ export const UltimateAdminPage: React.FC = () => {
       setPendingEvents(eventsData.events);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAllEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await adminAPI.getAllEvents(statusFilter || undefined);
+      setAllEvents(data.events);
+    } catch (error) {
+      console.error('Failed to fetch all events:', error);
     } finally {
       setLoading(false);
     }
@@ -52,6 +72,24 @@ export const UltimateAdminPage: React.FC = () => {
       console.error('Failed to review event:', error);
       alert('Failed to review event');
     }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await adminAPI.deleteEvent(id);
+      setAllEvents(prev => prev.filter(event => event.id !== id));
+      alert('Event deleted successfully!');
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      alert('Failed to delete event');
+    }
+  };
+
+  const handleEditEvent = (id: string) => {
+    navigate(`/admin/events/edit/${id}`);
   };
 
   return (
@@ -95,6 +133,17 @@ export const UltimateAdminPage: React.FC = () => {
             >
               Pending Events ({pendingEvents.length})
               {activeTab === 'events' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('allEvents')}
+              className={`flex-1 py-4 font-medium transition-colors relative ${
+                activeTab === 'allEvents' ? 'text-blue-600' : 'text-gray-600'
+              }`}
+            >
+              All Events ({allEvents.length})
+              {activeTab === 'allEvents' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
               )}
             </button>
@@ -229,6 +278,113 @@ export const UltimateAdminPage: React.FC = () => {
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {/* All Events Tab */}
+            {activeTab === 'allEvents' && (
+              <div>
+                {/* Status Filter */}
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Status
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="PENDING_APPROVAL">Pending Approval</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  {allEvents.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-lg">
+                      <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No events found</p>
+                    </div>
+                  ) : (
+                    allEvents.map((event: any) => (
+                      <div key={event.id} className="bg-white rounded-lg shadow-sm p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                              {event.title}
+                            </h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`text-xs px-3 py-1 rounded-full ${
+                                event.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' :
+                                event.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-700' :
+                                event.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                event.status === 'ARCHIVED' ? 'bg-gray-100 text-gray-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                                {event.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              By {event.createdBy?.fullName || 'Unknown'} ({event.createdBy?.email || 'N/A'})
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mb-4 space-y-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Date:</span>{' '}
+                            {new Date(event.date).toLocaleDateString()} at {event.time}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Location:</span> {event.location}, {event.district}
+                          </p>
+                          <p className="text-gray-700 line-clamp-2">{event.description}</p>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/event/${event.id}`)}
+                            className="flex-1 border-2 border-gray-300 text-gray-700 py-2 rounded-lg hover:border-gray-400 transition-colors"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEditEvent(event.id)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+                          >
+                            Edit
+                          </button>
+                          {event.status === 'PENDING_APPROVAL' && (
+                            <>
+                              <button
+                                onClick={() => handleReviewEvent(event.id, 'PUBLISHED')}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors"
+                              >
+                                Publish
+                              </button>
+                              <button
+                                onClick={() => handleReviewEvent(event.id, 'REJECTED')}
+                                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </>
