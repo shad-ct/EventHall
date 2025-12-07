@@ -38,6 +38,7 @@ export const EventFormPage: React.FC = () => {
   const [facebookUrl, setFacebookUrl] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
@@ -96,6 +97,51 @@ export const EventFormPage: React.FC = () => {
         setCustomCategoryTags([...customCategoryTags, newTag]);
       }
       setCategoryTagInput('');
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 32MB for ImgBB)
+    if (file.size > 32 * 1024 * 1024) {
+      setError('Image size must be less than 32MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('expiration', '0'); // Never expire
+
+      const response = await fetch('https://api.imgbb.com/1/upload?key=c31b5340081dec80f2fdc7b4c878a037', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBannerUrl(data.data.url);
+        alert('Image uploaded successfully!');
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      console.error('Failed to upload image:', error);
+      setError('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -345,16 +391,65 @@ export const EventFormPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Event Banner URL
+                  Event Banner Image
                 </label>
+                
+                {/* Image Preview */}
+                {bannerUrl && (
+                  <div className="mb-3 relative">
+                    <img 
+                      src={bannerUrl} 
+                      alt="Banner preview" 
+                      className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setBannerUrl('')}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <div className="flex gap-2 mb-2">
+                  <label className="flex-1 cursor-pointer">
+                    <div className={`w-full px-4 py-2 border-2 border-dashed rounded-lg text-center transition-colors ${
+                      uploadingImage 
+                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                        : 'border-blue-300 hover:border-blue-500 bg-blue-50 hover:bg-blue-100'
+                    }`}>
+                      {uploadingImage ? (
+                        <span className="text-gray-600">Uploading...</span>
+                      ) : (
+                        <span className="text-blue-600 font-medium">📤 Upload Image</span>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div className="text-sm text-gray-500 text-center my-2">OR</div>
                 <input
                   type="url"
                   value={bannerUrl}
                   onChange={(e) => setBannerUrl(e.target.value)}
-                  placeholder="https://example.com/banner.jpg"
+                  placeholder="Paste image URL here"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  disabled={uploadingImage}
                 />
-                <p className="text-xs text-gray-500 mt-1">Recommended: 1200x600px, JPG or PNG</p>
+                <p className="text-xs text-gray-500 mt-1">Recommended: 1200x600px, JPG or PNG (max 32MB)</p>
               </div>
             </div>
 
