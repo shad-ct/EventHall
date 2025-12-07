@@ -168,7 +168,7 @@ function AppRoutes() {
 
       {/* Demo Admin Routes (Hidden) */}
       <Route path="/admin" element={<AdminLoginPage />} />
-      <Route path="/admin/dashboard-demo" element={<AdminDashboardPage />} />
+      <Route path="/admin-demo" element={<AdminDashboardPage />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/home" replace />} />

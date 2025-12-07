@@ -22,7 +22,7 @@ const AdminLoginPage = () => {
         role: 'superadmin',
         loginTime: new Date().toISOString(),
       }));
-      navigate('/admin/dashboard');
+      navigate('/admin-demo');
     } else {
       setError('Invalid username or password');
     }
