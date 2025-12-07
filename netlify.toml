@@ -1,0 +1,17 @@
+[build]
+  # Only build the frontend - server runs separately
+  command = "npm run build:frontend"
+  publish = "dist"
+  
+[build.environment]
+  NODE_VERSION = "20"
+
+# Prevent server files from being included
+[functions]
+  # No functions to deploy - backend is separate
+  directory = "none"
+
+# Security: Ignore server code patterns
+[build.ignore]
+  # Don't trigger rebuilds for server changes
+  ignore = "server/**"
