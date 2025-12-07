@@ -32,11 +32,31 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const [lastLocationKey, setLastLocationKey] = useState(location.key);
+
   useEffect(() => {
     if (user) {
       fetchUserEvents();
     }
-  }, [user, location.pathname]);
+  }, [user]);
+
+  // Refetch when navigating back to profile page
+  useEffect(() => {
+    // If location key changed and we're on profile page, refetch
+    if (location.pathname === '/profile' && location.key !== lastLocationKey) {
+      if (user) {
+        fetchUserEvents();
+      }
+      setLastLocationKey(location.key);
+    }
+  }, [location, lastLocationKey, user]);
+
+  // Refetch when switching to liked tab to get fresh data
+  useEffect(() => {
+    if (activeTab === 'liked' && user) {
+      fetchUserEvents();
+    }
+  }, [activeTab, user]);
 
   const handleEventClick = (eventId: string) => {
     navigate(`/event/${eventId}`);
