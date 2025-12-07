@@ -24,12 +24,18 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchEvents = async () => {
-      if (!user || !user.interests || user.interests.length === 0) {
+      if (!user) {
         setLoading(false);
         return;
       }
 
       try {
+        // If user has no interests, prompt them to set interests
+        if (!user.interests || user.interests.length === 0) {
+          setLoading(false);
+          return;
+        }
+
         const categoryIds = user.interests.map(i => i.category.id);
         const data = await eventAPI.getEventsByCategories(categoryIds);
         setEventsByCategory(data.eventsByCategory);
@@ -83,7 +89,21 @@ export const HomePage: React.FC = () => {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        {Object.keys(eventsByCategory).length === 0 ? (
+        {!user?.interests || user.interests.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">Set Your Interests</h3>
+            <p className="text-gray-600 mb-6">
+              Please select your interests to see personalized events.
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Profile
+            </button>
+          </div>
+        ) : Object.keys(eventsByCategory).length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
@@ -116,9 +136,9 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 {/* Horizontal Scroll of Event Cards */}
-                <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 scrollbar-hide">
+                <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth">
                   {events.map((event) => (
-                    <div key={event.id} className="flex-shrink-0 w-80">
+                    <div key={event.id} className="flex-shrink-0 w-80 snap-start">
                       <EventCard
                         event={event}
                         isLiked={likedEventIds.includes(event.id)}
