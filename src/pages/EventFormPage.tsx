@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { getCategories } from '../lib/firestore';
 import { EventCategory } from '../types';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 
 export const EventFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +24,8 @@ export const EventFormPage: React.FC = () => {
   const [googleMapsLink, setGoogleMapsLink] = useState('');
   const [primaryCategoryId, setPrimaryCategoryId] = useState('');
   const [additionalCategoryIds, setAdditionalCategoryIds] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [entryFee, setEntryFee] = useState('');
   const [isFree, setIsFree] = useState(false);
   const [prizeDetails, setPrizeDetails] = useState('');
@@ -84,6 +86,21 @@ export const EventFormPage: React.FC = () => {
     setAdditionalCategoryIds(prev =>
       prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
     );
+  };
+
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      const newTag = tagInput.trim().toLowerCase();
+      if (!customTags.includes(newTag)) {
+        setCustomTags([...customTags, newTag]);
+      }
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setCustomTags(customTags.filter(t => t !== tag));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -300,13 +317,13 @@ export const EventFormPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Additional Categories (Tags)
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
                   {categories.filter(c => c.id !== primaryCategoryId).map((category) => (
                     <button
                       key={category.id}
                       type="button"
                       onClick={() => toggleAdditionalCategory(category.id)}
-                      className={`py-2 px-3 rounded-lg border-2 text-sm transition-colors ${
+                      className={`py-1 px-2 rounded-lg border-2 text-xs transition-colors ${
                         additionalCategoryIds.includes(category.id)
                           ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
@@ -316,6 +333,39 @@ export const EventFormPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Custom Tags
+                </label>
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                  placeholder="Type a tag and press Enter..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
+                />
+                {customTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {customTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="hover:text-purple-900"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
