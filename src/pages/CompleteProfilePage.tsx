@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../lib/api';
+import { updateUserProfile, updateUserInterests } from '../lib/firestore';
 import { EventCategory } from '../types';
 import { auth } from '../lib/firebase';
 
@@ -63,15 +64,23 @@ export const CompleteProfilePage: React.FC = () => {
     setError('');
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Not authenticated');
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('Not authenticated');
 
-      await authAPI.updateProfile(idToken, {
+      // Get selected category objects
+      const selectedCategories = categories.filter(cat =>
+        selectedInterests.includes(cat.id)
+      );
+
+      // Update user profile in Firestore
+      await updateUserProfile(uid, {
         fullName: fullName.trim(),
         isStudent,
         collegeName: isStudent ? collegeName.trim() : null,
-        interests: selectedInterests,
       });
+
+      // Update interests in Firestore
+      await updateUserInterests(uid, selectedCategories);
 
       await refreshUser();
       navigate('/home');

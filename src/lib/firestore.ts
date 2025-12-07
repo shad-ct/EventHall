@@ -10,7 +10,7 @@ import {
   getDocs,
   serverTimestamp,
 } from 'firebase/firestore';
-import { User } from '../types';
+import { User, UserInterest, EventCategory } from '../types';
 
 /**
  * User collection operations
@@ -105,4 +105,36 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
   }
 
   return querySnapshot.docs[0].data() as User;
+};
+
+/**
+ * Event Categories - Mock data for now (can be migrated to Firestore later)
+ * These are loaded from the backend API
+ */
+export const getCategories = async (): Promise<EventCategory[]> => {
+  // For now, return categories from localStorage if available
+  // or use empty array - categories should be fetched from somewhere
+  // This will be called by your pages and needs to be updated
+  // For now, pages should still use the API to get categories
+  return [];
+};
+
+/**
+ * Update user interests with category details
+ */
+export const updateUserInterests = async (
+  uid: string,
+  interestCategories: EventCategory[]
+): Promise<void> => {
+  const userRef = doc(db, 'users', uid);
+
+  const interests: UserInterest[] = interestCategories.map(category => ({
+    id: category.id,
+    category: category,
+  }));
+
+  await updateDoc(userRef, {
+    interests,
+    updatedAt: serverTimestamp(),
+  });
 };
