@@ -5,6 +5,8 @@
   
 [build.environment]
   NODE_VERSION = "20"
+  # Exclude documentation and server files from secrets scanning
+  SECRETS_SCAN_OMIT_PATHS = "server/**,*.md,.env.example"
 
 # Redirects for SPA routing
 [[redirects]]
