@@ -145,3 +145,96 @@ export const updateUserInterests = async (
     updatedAt: serverTimestamp(),
   });
 };
+
+/**
+ * Event Collection Operations - Mock data for now
+ * Full event features will be migrated to Firestore soon
+ */
+
+/**
+ * Get all events (mock - returns empty for now)
+ */
+export const getEvents = async (_params?: any): Promise<any> => {
+  // TODO: Implement Firestore events collection
+  return { events: [] };
+};
+
+/**
+ * Get events by categories
+ */
+export const getEventsByCategories = async (_categoryIds: string[]): Promise<any> => {
+  // TODO: Implement Firestore events filtering by categories
+  return { events: [] };
+};
+
+/**
+ * Get single event
+ */
+export const getEvent = async (_id: string): Promise<any> => {
+  // TODO: Implement Firestore event retrieval
+  return { event: null };
+};
+
+/**
+ * Create event
+ */
+export const createEvent = async (_eventData: any): Promise<any> => {
+  // TODO: Implement Firestore event creation
+  throw new Error('Event creation coming soon');
+};
+
+/**
+ * Update event
+ */
+export const updateEvent = async (_id: string, _eventData: any): Promise<any> => {
+  // TODO: Implement Firestore event update
+  throw new Error('Event update coming soon');
+};
+
+/**
+ * Like event
+ */
+export const likeEvent = async (_id: string): Promise<any> => {
+  // TODO: Implement Firestore event like
+  return {};
+};
+
+/**
+ * Register for event
+ */
+export const registerEvent = async (_id: string): Promise<any> => {
+  // TODO: Implement Firestore event registration
+  return {};
+};
+
+/**
+ * Get user's registered events
+ */
+export const getRegisteredEvents = async (): Promise<any> => {
+  // TODO: Implement Firestore user registrations query
+  return { events: [] };
+};
+
+/**
+ * Get user's liked events
+ */
+export const getLikedEvents = async (): Promise<any> => {
+  // TODO: Implement Firestore user likes query
+  return { events: [] };
+};
+
+/**
+ * Get user's created events
+ */
+export const getUserEvents = async (): Promise<any> => {
+  // TODO: Implement Firestore user events query
+  return { events: [] };
+};
+
+/**
+ * Check event interactions (likes, registrations)
+ */
+export const checkInteractions = async (_eventIds: string[]): Promise<any> => {
+  // TODO: Implement Firestore interaction checks
+  return { likes: [], registrations: [] };
+};

@@ -3,59 +3,50 @@
  * 
  * This file is kept as a stub for backward compatibility.
  * All authentication now uses Firebase Firestore directly.
- * 
- * Event, admin, and other features still need to be migrated to Firestore.
- * Remove imports from this file as you migrate each feature.
+ * Event and other features delegate to firestore.ts functions.
  */
 
+// Import Firestore functions for delegation
+import {
+  getEventsByCategories as fsGetEventsByCategories,
+  getEvent as fsGetEvent,
+  createEvent as fsCreateEvent,
+  updateEvent as fsUpdateEvent,
+  likeEvent as fsLikeEvent,
+  registerEvent as fsRegisterEvent,
+  getRegisteredEvents as fsGetRegisteredEvents,
+  getLikedEvents as fsGetLikedEvents,
+  getUserEvents as fsGetUserEvents,
+  checkInteractions as fsCheckInteractions,
+  getCategories,
+} from './firestore';
+
 export const authAPI = {
-  getCategories: async () => {
-    // TODO: Migrate categories to Firestore
-    throw new Error('Categories need to be migrated to Firestore. See FIRESTORE_MIGRATION_COMPLETE.md');
-  },
+  getCategories,
 };
 
 export const userAPI = {
   getProfile: async () => {
-    // Use firestore.ts instead
-    throw new Error('Use Firestore directly. Import from ../lib/firestore');
+    // Use AuthContext for user profile
+    throw new Error('Use AuthContext for user profile');
   },
-  getLikedEvents: async () => {
-    throw new Error('Event features need Firestore migration');
-  },
-  getRegisteredEvents: async () => {
-    throw new Error('Event features need Firestore migration');
-  },
-  getMyEvents: async () => {
-    throw new Error('Event features need Firestore migration');
-  },
+  getLikedEvents: fsGetLikedEvents,
+  getRegisteredEvents: fsGetRegisteredEvents,
+  getMyEvents: fsGetUserEvents,
 };
 
 export const eventAPI = {
   getEvents: async (_params?: any) => {
-    throw new Error('Event features need Firestore migration');
+    const events = await fsGetEventsByCategories([]);
+    return { events: events.events || [] };
   },
-  getEventsByCategories: async (_categoryIds: string[]) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  getEvent: async (_id: string) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  createEvent: async (_eventData: any) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  updateEvent: async (_id: string, _eventData: any) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  likeEvent: async (_id: string) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  registerEvent: async (_id: string) => {
-    throw new Error('Event features need Firestore migration');
-  },
-  checkInteractions: async (_eventIds: string[]) => {
-    throw new Error('Event features need Firestore migration');
-  },
+  getEventsByCategories: fsGetEventsByCategories,
+  getEvent: fsGetEvent,
+  createEvent: fsCreateEvent,
+  updateEvent: fsUpdateEvent,
+  likeEvent: fsLikeEvent,
+  registerEvent: fsRegisterEvent,
+  checkInteractions: fsCheckInteractions,
 };
 
 export const adminAPI = {
