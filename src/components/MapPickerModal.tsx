@@ -254,10 +254,10 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-4 border-b border-gray-200 bg-white relative z-20">
+        {/* Search Bar with Dropdown */}
+        <div className="p-4 border-b border-gray-200 bg-white">
           <div className="relative">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -272,9 +272,9 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
               </div>
             )}
 
-            {/* Search Results Dropdown */}
+            {/* Search Results Dropdown - Fixed Positioning */}
             {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-12 left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-2xl z-50 max-h-64 overflow-y-auto">
                 {searchResults.map((result) => (
                   <button
                     key={result.id}
@@ -295,7 +295,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
           {/* Map Container */}
           <div
             ref={setMapContainer}
-            className="flex-1 w-full min-h-96 bg-gray-100"
+            className="flex-1 w-full min-h-96 bg-gray-100 relative z-0"
             id="map-container"
           />
 
