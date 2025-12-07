@@ -108,15 +108,22 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
 };
 
 /**
- * Event Categories - Mock data for now (can be migrated to Firestore later)
- * These are loaded from the backend API
+ * Event Categories - Mock data (can be migrated to Firestore later)
  */
+export const mockCategories: EventCategory[] = [
+  { id: '1', name: 'Hackathons', slug: 'hackathons', description: 'Coding competitions and marathons' },
+  { id: '2', name: 'Workshops', slug: 'workshops', description: 'Technical and skill-building workshops' },
+  { id: '3', name: 'Conferences', slug: 'conferences', description: 'Tech talks and conferences' },
+  { id: '4', name: 'Seminars', slug: 'seminars', description: 'Expert seminars and lectures' },
+  { id: '5', name: 'Sports', slug: 'sports', description: 'Sports events and competitions' },
+  { id: '6', name: 'Cultural', slug: 'cultural', description: 'Cultural programs and performances' },
+  { id: '7', name: 'Music & Arts', slug: 'music-arts', description: 'Music concerts and art exhibitions' },
+  { id: '8', name: 'Gaming', slug: 'gaming', description: 'Gaming tournaments and esports' },
+];
+
 export const getCategories = async (): Promise<EventCategory[]> => {
-  // For now, return categories from localStorage if available
-  // or use empty array - categories should be fetched from somewhere
-  // This will be called by your pages and needs to be updated
-  // For now, pages should still use the API to get categories
-  return [];
+  // Return mock categories for now
+  return mockCategories;
 };
 
 /**

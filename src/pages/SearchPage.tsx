@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { eventAPI, authAPI } from '../lib/api';
+import { eventAPI } from '../lib/api';
+import { getCategories } from '../lib/firestore';
 import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
@@ -34,8 +35,8 @@ export const SearchPage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await authAPI.getCategories();
-        setCategories(data.categories);
+        const data = await getCategories();
+        setCategories(data);
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }

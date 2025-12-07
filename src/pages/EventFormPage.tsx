@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { authAPI, eventAPI } from '../lib/api';
+import { eventAPI } from '../lib/api';
+import { getCategories } from '../lib/firestore';
 import { EventCategory } from '../types';
 import { ArrowLeft } from 'lucide-react';
 
@@ -44,8 +45,8 @@ export const EventFormPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const catData = await authAPI.getCategories();
-        setCategories(catData.categories);
+        const catData = await getCategories();
+        setCategories(catData);
 
         if (isEdit && id) {
           const eventData = await eventAPI.getEvent(id);

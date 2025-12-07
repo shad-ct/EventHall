@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authAPI } from '../lib/api';
-import { updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { updateUserProfile, updateUserInterests, getCategories } from '../lib/firestore';
 import { EventCategory } from '../types';
 import { auth } from '../lib/firebase';
 
@@ -30,8 +29,8 @@ export const CompleteProfilePage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await authAPI.getCategories();
-        setCategories(data.categories);
+        const data = await getCategories();
+        setCategories(data);
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }

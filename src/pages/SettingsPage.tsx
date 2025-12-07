@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
-import { authAPI, adminAPI } from '../lib/api';
+import { getCategories, updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { adminAPI } from '../lib/api';
 import { EventCategory } from '../types';
 import { ArrowLeft, LogOut, Shield, User as UserIcon, Heart } from 'lucide-react';
 
@@ -38,8 +39,8 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await authAPI.getCategories();
-        setCategories(data.categories);
+        const data = await getCategories();
+        setCategories(data);
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }
