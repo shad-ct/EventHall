@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { auth } from '../lib/firebase';
 import { getCategories, updateUserProfile, updateUserInterests } from '../lib/firestore';
 import { adminAPI } from '../lib/api';
 import { EventCategory } from '../types';
@@ -67,15 +66,18 @@ export const SettingsPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Not authenticated');
+      if (!user) throw new Error('Not authenticated');
 
-      await authAPI.updateProfile(idToken, {
+      // Update profile
+      await updateUserProfile(user.firebaseUid, {
         fullName: fullName.trim(),
         isStudent,
         collegeName: isStudent ? collegeName.trim() : null,
-        interests: selectedInterests,
       });
+
+      // Update interests
+      const selectedCategories = categories.filter(cat => selectedInterests.includes(cat.id));
+      await updateUserInterests(user.firebaseUid, selectedCategories);
 
       await refreshUser();
       setShowEditProfile(false);

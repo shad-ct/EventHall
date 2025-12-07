@@ -164,7 +164,7 @@ export const getEvents = async (_params?: any): Promise<any> => {
  */
 export const getEventsByCategories = async (_categoryIds: string[]): Promise<any> => {
   // TODO: Implement Firestore events filtering by categories
-  return { events: [] };
+  return { eventsByCategory: {} };
 };
 
 /**
@@ -236,5 +236,5 @@ export const getUserEvents = async (): Promise<any> => {
  */
 export const checkInteractions = async (_eventIds: string[]): Promise<any> => {
   // TODO: Implement Firestore interaction checks
-  return { likes: [], registrations: [] };
+  return { likedEventIds: [], registeredEventIds: [] };
 };
