@@ -29,7 +29,7 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFullName(user.fullName);
-      setIsStudent(user.isStudent);
+      setIsStudent(user.isStudent ?? true);
       setCollegeName(user.collegeName || '');
       setSelectedInterests(user.interests?.map(i => i.category.id) || []);
     }
