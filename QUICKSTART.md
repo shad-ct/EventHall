@@ -22,7 +22,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFA
 
 
 # 3. Add your email to become Ultimate Admin
-ULTIMATE_ADMIN_EMAILS="your-email@gmail.com"
+ULTIMATE_ADMIN_EMAILS="muhammedshad9895@gmail.com"
 ```
 
 ### 2. Install & Setup Database
