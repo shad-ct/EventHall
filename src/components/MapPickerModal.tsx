@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, MapPin, Navigation } from 'lucide-react';
+import { X, MapPin, Navigation, Search } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -9,6 +9,14 @@ interface MapPickerModalProps {
   onSelect: (location: { address: string; coordinates: { lat: number; lng: number } }) => void;
 }
 
+interface SearchResult {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  address: string;
+}
+
 export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -16,6 +24,10 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
   const [addressName, setAddressName] = useState('');
   const [mapContainer, setMapContainer] = useState<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Default coordinates (center of India)
   const DEFAULT_LAT = 20.5937;
@@ -95,6 +107,74 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
     }
   };
 
+  const handleSearchPlace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=in`
+      );
+      const data = await response.json();
+      const results: SearchResult[] = data.map((item: any) => ({
+        id: item.osm_id,
+        name: item.name,
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        address: item.display_name,
+      }));
+      setSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSelectSearchResult = (result: SearchResult) => {
+    const coords = { lat: result.lat, lng: result.lon };
+    setSelectedCoords(coords);
+    setAddressName(result.name);
+    setSearchQuery('');
+    setShowSearchResults(false);
+
+    if (mapRef.current) {
+      mapRef.current.setView([result.lat, result.lon], 16);
+
+      // Remove old marker
+      if (markerRef.current) {
+        mapRef.current.removeLayer(markerRef.current);
+      }
+
+      // Add new marker
+      const marker = L.marker([result.lat, result.lon], {
+        icon: L.icon({
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          iconSize: [25, 41],
+          shadowSize: [41, 41],
+          iconAnchor: [12, 41],
+          shadowAnchor: [12, 41],
+          popupAnchor: [1, -34],
+        }),
+      })
+        .bindPopup(`<div class="text-sm font-medium">📍 ${result.name}</div>`)
+        .addTo(mapRef.current)
+        .openPopup();
+
+      markerRef.current = marker;
+    }
+  };
+
   const handleUseCurrentLocation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -170,6 +250,41 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
           >
             <X className="w-6 h-6" />
           </button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="p-4 border-b border-gray-200 bg-white relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchPlace}
+              placeholder="Search for a place... (e.g., 'Taj Mahal', 'Central Park', etc.)"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchLoading && (
+              <div className="absolute right-3 top-3">
+                <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+              </div>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && searchResults.length > 0 && (
+            <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  onClick={() => handleSelectSearchResult(result)}
+                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                >
+                  <p className="font-medium text-gray-900">{result.name}</p>
+                  <p className="text-xs text-gray-600 truncate">{result.address}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
