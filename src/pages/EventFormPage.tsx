@@ -217,30 +217,32 @@ export const EventFormPage: React.FC = () => {
         return;
       }
 
-      const eventData = {
+      const eventData: any = {
         title,
         description,
         date,
         time,
         location,
         district,
-        googleMapsLink: googleMapsLink || undefined,
-        primaryCategoryId: selectedCategoryIds[0] || undefined,
-        additionalCategoryIds: selectedCategoryIds.slice(1).length > 0 ? selectedCategoryIds.slice(1) : undefined,
-        customCategories: customCategoryTags.length > 0 ? customCategoryTags : undefined,
-        entryFee: isFree ? undefined : entryFee,
-        isFree,
-        prizeDetails: prizeDetails || undefined,
+        primaryCategoryId: selectedCategoryIds[0],
         contactEmail,
         contactPhone,
-        externalRegistrationLink: externalRegistrationLink || undefined,
-        howToRegisterLink: howToRegisterLink || undefined,
-        instagramUrl: instagramUrl || undefined,
-        facebookUrl: facebookUrl || undefined,
-        youtubeUrl: youtubeUrl || undefined,
-        bannerUrl: bannerUrl || undefined,
-        customTags: customTags.length > 0 ? customTags : undefined,
+        isFree,
       };
+
+      // Add optional fields only if they have values
+      if (googleMapsLink?.trim()) eventData.googleMapsLink = googleMapsLink;
+      if (selectedCategoryIds.length > 1) eventData.additionalCategoryIds = selectedCategoryIds.slice(1);
+      if (customCategoryTags.length > 0) eventData.customCategories = customCategoryTags;
+      if (!isFree && entryFee?.trim()) eventData.entryFee = entryFee;
+      if (prizeDetails?.trim()) eventData.prizeDetails = prizeDetails;
+      if (externalRegistrationLink?.trim()) eventData.externalRegistrationLink = externalRegistrationLink;
+      if (howToRegisterLink?.trim()) eventData.howToRegisterLink = howToRegisterLink;
+      if (instagramUrl?.trim()) eventData.instagramUrl = instagramUrl;
+      if (facebookUrl?.trim()) eventData.facebookUrl = facebookUrl;
+      if (youtubeUrl?.trim()) eventData.youtubeUrl = youtubeUrl;
+      if (bannerUrl?.trim()) eventData.bannerUrl = bannerUrl;
+      if (customTags.length > 0) eventData.customTags = customTags;
 
       if (isEdit && id) {
         await eventAPI.updateEvent(id, eventData);
