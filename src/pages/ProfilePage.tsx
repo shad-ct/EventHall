@@ -36,6 +36,7 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
+      console.log('ProfilePage mounted or user changed, fetching events');
       fetchUserEvents();
     }
   }, [user]);
@@ -44,6 +45,7 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     // If location key changed and we're on profile page, refetch
     if (location.pathname === '/profile' && location.key !== lastLocationKey) {
+      console.log('Navigated back to profile page, refetching');
       if (user) {
         fetchUserEvents();
       }
@@ -54,6 +56,10 @@ export const ProfilePage: React.FC = () => {
   // Refetch when switching to liked tab to get fresh data
   useEffect(() => {
     if (activeTab === 'liked' && user) {
+      console.log('Switched to liked tab, fetching fresh data');
+      fetchUserEvents();
+    } else if (activeTab === 'applied' && user) {
+      console.log('Switched to applied tab, fetching fresh data');
       fetchUserEvents();
     }
   }, [activeTab, user]);
