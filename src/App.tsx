@@ -10,6 +10,8 @@ import { EventDetailPage } from './pages/EventDetailPage';
 import { AdminEventsPage } from './pages/AdminEventsPage';
 import { EventFormPage } from './pages/EventFormPage';
 import { UltimateAdminPage } from './pages/UltimateAdminPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -163,6 +165,10 @@ function AppRoutes() {
           </UltimateAdminRoute>
         }
       />
+
+      {/* Demo Admin Routes (Hidden) */}
+      <Route path="/admin" element={<AdminLoginPage />} />
+      <Route path="/admin/dashboard-demo" element={<AdminDashboardPage />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/home" replace />} />
