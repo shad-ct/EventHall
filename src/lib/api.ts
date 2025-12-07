@@ -24,7 +24,6 @@ import {
   getPendingEvents,
   updateEventAdminStatus,
   getAllUsers,
-  seedSampleEvents,
 } from './firestore';
 
 export const authAPI = {
@@ -69,7 +68,6 @@ export const adminAPI = {
   },
   updateEventStatus: updateEventAdminStatus,
   getUsers: getAllUsers,
-  seedSampleEvents: seedSampleEvents,
 };
 
 export default {};
