@@ -123,6 +123,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=in`
       );
       const data = await response.json();
+      console.log('Search results:', data);
       const results: SearchResult[] = data.map((item: any) => ({
         id: item.osm_id,
         name: item.name,
@@ -130,6 +131,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
         lon: parseFloat(item.lon),
         address: item.display_name,
       }));
+      console.log('Mapped results:', results);
       setSearchResults(results);
       setShowSearchResults(results.length > 0);
     } catch (error) {
@@ -253,7 +255,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
         </div>
 
         {/* Search Bar */}
-        <div className="p-4 border-b border-gray-200 bg-white relative">
+        <div className="p-4 border-b border-gray-200 bg-white relative z-20">
           <div className="relative">
             <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
             <input
@@ -262,29 +264,31 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
               onChange={handleSearchPlace}
               placeholder="Search for a place... (e.g., 'Taj Mahal', 'Central Park', etc.)"
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoComplete="off"
             />
             {searchLoading && (
               <div className="absolute right-3 top-3">
                 <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
               </div>
             )}
-          </div>
 
-          {/* Search Results Dropdown */}
-          {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
-              {searchResults.map((result) => (
-                <button
-                  key={result.id}
-                  onClick={() => handleSelectSearchResult(result)}
-                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                >
-                  <p className="font-medium text-gray-900">{result.name}</p>
-                  <p className="text-xs text-gray-600 truncate">{result.address}</p>
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.id}
+                    onClick={() => handleSelectSearchResult(result)}
+                    type="button"
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900 text-sm">{result.name}</p>
+                    <p className="text-xs text-gray-600 truncate">{result.address}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
