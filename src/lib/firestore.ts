@@ -8,6 +8,7 @@ import {
   query,
   where,
   getDocs,
+  addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { User, UserInterest, EventCategory } from '../types';
@@ -152,42 +153,132 @@ export const updateUserInterests = async (
  */
 
 /**
- * Get all events (mock - returns empty for now)
+ * Get all events
  */
 export const getEvents = async (_params?: any): Promise<any> => {
-  // TODO: Implement Firestore events collection
-  return { events: [] };
+  const eventsRef = collection(db, 'events');
+  const q = query(eventsRef, where('status', '==', 'PUBLISHED'));
+  const querySnapshot = await getDocs(q);
+  
+  const events = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  
+  return { events };
 };
 
 /**
  * Get events by categories
  */
-export const getEventsByCategories = async (_categoryIds: string[]): Promise<any> => {
-  // TODO: Implement Firestore events filtering by categories
-  return { eventsByCategory: {} };
+export const getEventsByCategories = async (categoryIds: string[]): Promise<any> => {
+  const eventsRef = collection(db, 'events');
+  
+  if (!categoryIds || categoryIds.length === 0) {
+    // If no categories specified, get all published events
+    const q = query(eventsRef, where('status', '==', 'PUBLISHED'));
+    const querySnapshot = await getDocs(q);
+    
+    const events = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    
+    return { eventsByCategory: {}, events };
+  }
+  
+  // Get all published events
+  const q = query(eventsRef, where('status', '==', 'PUBLISHED'));
+  const querySnapshot = await getDocs(q);
+  
+  const allEvents = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  
+  // Group events by category
+  const eventsByCategory: any = {};
+  
+  allEvents.forEach((event: any) => {
+    const primaryCatId = event.primaryCategoryId;
+    const additionalCatIds = event.additionalCategoryIds || [];
+    
+    // Check if event matches any requested category
+    if (categoryIds.includes(primaryCatId) || additionalCatIds.some((id: string) => categoryIds.includes(id))) {
+      // Add to primary category
+      if (categoryIds.includes(primaryCatId)) {
+        if (!eventsByCategory[primaryCatId]) {
+          eventsByCategory[primaryCatId] = {
+            category: mockCategories.find(c => c.id === primaryCatId),
+            events: [],
+          };
+        }
+        eventsByCategory[primaryCatId].events.push(event);
+      }
+    }
+  });
+  
+  return { eventsByCategory, events: allEvents };
 };
 
 /**
  * Get single event
  */
-export const getEvent = async (_id: string): Promise<any> => {
-  // TODO: Implement Firestore event retrieval
-  return { event: null };
+export const getEvent = async (id: string): Promise<any> => {
+  const eventRef = doc(db, 'events', id);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    return { event: null };
+  }
+  
+  return { 
+    event: {
+      id: eventSnap.id,
+      ...eventSnap.data(),
+    }
+  };
 };
 
 /**
  * Create event
  */
-export const createEvent = async (_eventData: any): Promise<any> => {
-  // TODO: Implement Firestore event creation
-  return { success: true, message: 'Event created successfully', eventId: 'temp-id' };
+export const createEvent = async (eventData: any): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const eventsRef = collection(db, 'events');
+  
+  const newEvent = {
+    ...eventData,
+    status: 'PUBLISHED', // Auto-publish for now, can add approval flow later
+    createdBy: {
+      id: currentUser.uid,
+      fullName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+      email: currentUser.email || '',
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  const docRef = await addDoc(eventsRef, newEvent);
+  
+  return { success: true, message: 'Event created successfully', eventId: docRef.id };
 };
 
 /**
  * Update event
  */
-export const updateEvent = async (_id: string, _eventData: any): Promise<any> => {
-  // TODO: Implement Firestore event update
+export const updateEvent = async (id: string, eventData: any): Promise<any> => {
+  const eventRef = doc(db, 'events', id);
+  
+  await updateDoc(eventRef, {
+    ...eventData,
+    updatedAt: serverTimestamp(),
+  });
+  
   return { success: true, message: 'Event updated successfully' };
 };
 
@@ -227,8 +318,21 @@ export const getLikedEvents = async (): Promise<any> => {
  * Get user's created events
  */
 export const getUserEvents = async (): Promise<any> => {
-  // TODO: Implement Firestore user events query
-  return { events: [] };
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const eventsRef = collection(db, 'events');
+  const q = query(eventsRef, where('createdBy.id', '==', currentUser.uid));
+  const querySnapshot = await getDocs(q);
+  
+  const events = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  
+  return { events };
 };
 
 /**
