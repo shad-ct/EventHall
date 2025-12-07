@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as FirebaseUser, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
-import { authAPI, userAPI } from '../lib/api';
+import { syncUserToFirestore, getUser } from '../lib/firestore';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -37,13 +37,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (firebaseUser) {
         try {
-          // Get ID token and sync with backend
-          const idToken = await firebaseUser.getIdToken();
-          const data = await authAPI.syncUser(idToken);
-          setUser(data.user);
-          setNeedsProfileCompletion(!data.user.fullName || !data.user.interests || data.user.interests.length === 0);
+          // Sync user with Firestore
+          const userData = await syncUserToFirestore(firebaseUser);
+          setUser(userData);
+          setNeedsProfileCompletion(!userData.fullName || !userData.interests || userData.interests.length === 0);
         } catch (error) {
-          console.error('Failed to sync user with backend:', error);
+          console.error('Failed to sync user with Firestore:', error);
           setUser(null);
         }
       } else {
@@ -59,9 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     try {
       if (firebaseUser) {
-        const data = await userAPI.getProfile();
-        setUser(data.user);
-        setNeedsProfileCompletion(!data.user.interests || data.user.interests.length === 0);
+        const userData = await getUser(firebaseUser.uid);
+        if (userData) {
+          setUser(userData);
+          setNeedsProfileCompletion(!userData.interests || userData.interests.length === 0);
+        }
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);
@@ -72,10 +73,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       const result = await signInWithPopup(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
-      const data = await authAPI.syncUser(idToken);
-      setUser(data.user);
-      setNeedsProfileCompletion(!data.user.fullName || !data.user.interests || data.user.interests.length === 0);
+      // Sync user to Firestore (happens automatically in onAuthStateChanged)
+      // Just ensure the user is synced
+      const userData = await syncUserToFirestore(result.user);
+      setUser(userData);
+      setNeedsProfileCompletion(!userData.fullName || !userData.interests || userData.interests.length === 0);
     } catch (error) {
       console.error('Google sign-in error:', error);
       throw error;
