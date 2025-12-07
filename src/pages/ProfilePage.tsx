@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userAPI } from '../lib/api';
 import { Event } from '../types';
@@ -10,39 +10,15 @@ import { Settings, Calendar } from 'lucide-react';
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'applied' | 'liked'>('applied');
   const [appliedEvents, setAppliedEvents] = useState<Event[]>([]);
   const [likedEvents, setLikedEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUserEvents = async () => {
-      try {
-        setLoading(true);
-        const [appliedData, likedData] = await Promise.all([
-          userAPI.getRegisteredEvents(),
-          userAPI.getLikedEvents(),
-        ]);
-        setAppliedEvents(appliedData.events);
-        setLikedEvents(likedData.events);
-      } catch (error) {
-        console.error('Failed to fetch user events:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchUserEvents();
-    }
-  }, [user]);
-
-  const handleEventClick = (eventId: string) => {
-    navigate(`/event/${eventId}`);
-  };
-
-  const refreshEvents = async () => {
+  const fetchUserEvents = async () => {
     try {
+      setLoading(true);
       const [appliedData, likedData] = await Promise.all([
         userAPI.getRegisteredEvents(),
         userAPI.getLikedEvents(),
@@ -50,8 +26,20 @@ export const ProfilePage: React.FC = () => {
       setAppliedEvents(appliedData.events);
       setLikedEvents(likedData.events);
     } catch (error) {
-      console.error('Failed to refresh events:', error);
+      console.error('Failed to fetch user events:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchUserEvents();
+    }
+  }, [user, location.pathname]);
+
+  const handleEventClick = (eventId: string) => {
+    navigate(`/event/${eventId}`);
   };
 
   const currentEvents = activeTab === 'applied' ? appliedEvents : likedEvents;
@@ -153,7 +141,7 @@ export const ProfilePage: React.FC = () => {
                 isLiked={likedEventIds.includes(event.id)}
                 isRegistered={appliedEventIds.includes(event.id)}
                 onClick={() => handleEventClick(event.id)}
-                onLikeToggle={refreshEvents}
+                onLikeToggle={fetchUserEvents}
               />
             ))}
           </div>
