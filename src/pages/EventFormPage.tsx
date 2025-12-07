@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { getCategories } from '../lib/firestore';
+import { uploadFileToFirebase } from '../lib/firebase-storage';
+import { MapPickerModal } from '../components/MapPickerModal';
 import { EventCategory } from '../types';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, MapPin, Download, Trash2 } from 'lucide-react';
 
 export const EventFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,6 +41,11 @@ export const EventFormPage: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [brochureFiles, setBrochureFiles] = useState<{ name: string; url: string }[]>([]);
+  const [posterImages, setPosterImages] = useState<{ name: string; url: string }[]>([]);
+  const [uploadingBrochure, setUploadingBrochure] = useState(false);
+  const [uploadingPoster, setUploadingPoster] = useState(false);
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
@@ -145,7 +152,96 @@ export const EventFormPage: React.FC = () => {
     }
   };
 
-  const removeCategoryTag = (tag: string) => {
+  const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type - only PDF
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file');
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      setError('PDF size must be less than 50MB');
+      return;
+    }
+
+    setUploadingBrochure(true);
+    setError('');
+
+    try {
+      const url = await uploadFileToFirebase(file, 'brochures');
+      setBrochureFiles([...brochureFiles, { name: file.name, url }]);
+      alert('Brochure uploaded successfully!');
+    } catch (error: any) {
+      console.error('Failed to upload brochure:', error);
+      setError('Failed to upload brochure. Please try again.');
+    } finally {
+      setUploadingBrochure(false);
+    }
+  };
+
+  const handlePosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 32MB for ImgBB)
+    if (file.size > 32 * 1024 * 1024) {
+      setError('Image size must be less than 32MB');
+      return;
+    }
+
+    setUploadingPoster(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('expiration', '0'); // Never expire
+
+      const response = await fetch('https://api.imgbb.com/1/upload?key=c31b5340081dec80f2fdc7b4c878a037', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPosterImages([...posterImages, { name: file.name, url: data.data.url }]);
+        alert('Poster uploaded successfully!');
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      console.error('Failed to upload poster:', error);
+      setError('Failed to upload poster. Please try again.');
+    } finally {
+      setUploadingPoster(false);
+    }
+  };
+
+  const removeBrochure = (index: number) => {
+    setBrochureFiles(brochureFiles.filter((_, i) => i !== index));
+  };
+
+  const removePoster = (index: number) => {
+    setPosterImages(posterImages.filter((_, i) => i !== index));
+  };
+
+  const handleMapSelection = (location: { address: string; coordinates?: { lat: number; lng: number } }) => {
+    setLocation(location.address);
+    setShowMapModal(false);
+  };
+
+  const removeCustomCategory = (tag: string) => {
     setCustomCategoryTags(customCategoryTags.filter(t => t !== tag));
   };
 
@@ -243,6 +339,8 @@ export const EventFormPage: React.FC = () => {
       if (youtubeUrl?.trim()) eventData.youtubeUrl = youtubeUrl;
       if (bannerUrl?.trim()) eventData.bannerUrl = bannerUrl;
       if (customTags.length > 0) eventData.customTags = customTags;
+      if (brochureFiles.length > 0) eventData.brochureFiles = brochureFiles;
+      if (posterImages.length > 0) eventData.posterImages = posterImages;
 
       if (isEdit && id) {
         await eventAPI.updateEvent(id, eventData);
@@ -349,14 +447,25 @@ export const EventFormPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Location *
                 </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Main Auditorium, NIT Calicut"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Main Auditorium, NIT Calicut"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMapModal(true)}
+                    className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Map
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Click "Map" to select location from Google Maps or enter manually</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -582,16 +691,21 @@ export const EventFormPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contact Phone *
+                    Contact Phone * (10 digits)
                   </label>
                   <input
                     type="tel"
                     value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                    placeholder="+91 1234567890"
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setContactPhone(value);
+                    }}
+                    placeholder="1234567890"
+                    maxLength={10}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">Enter 10 digit phone number</p>
                 </div>
               </div>
             </div>
@@ -673,6 +787,115 @@ export const EventFormPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Marketing Materials */}
+            <div className="space-y-4 pt-6 border-t">
+              <h3 className="text-lg font-semibold text-gray-900">Marketing Materials (Optional)</h3>
+              <p className="text-sm text-gray-600">Add brochures and posters to promote your event</p>
+              
+              {/* Brochures Section */}
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-900">
+                  📄 Event Brochures (PDF)
+                </label>
+                <p className="text-xs text-gray-600">Upload PDF brochures or documents about your event</p>
+                
+                {brochureFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {brochureFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Download className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeBrochure(index)}
+                          className="ml-2 text-red-600 hover:text-red-700 transition-colors flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <label className="flex items-center justify-center gap-2 cursor-pointer">
+                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${
+                    uploadingBrochure
+                      ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                      : 'border-blue-300 hover:border-blue-500 bg-white hover:bg-blue-50'
+                  }`}>
+                    {uploadingBrochure ? (
+                      <span className="text-gray-600 text-sm">Uploading PDF...</span>
+                    ) : (
+                      <span className="text-blue-600 font-medium text-sm">+ Add PDF Brochure</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleBrochureUpload}
+                    disabled={uploadingBrochure}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Posters Section */}
+              <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-900">
+                  🎨 Event Posters (Images)
+                </label>
+                <p className="text-xs text-gray-600">Upload promotional poster images (JPG, PNG)</p>
+                
+                {posterImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {posterImages.map((file, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={file.url}
+                          alt={`Poster ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-purple-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePoster(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <label className="flex items-center justify-center gap-2 cursor-pointer">
+                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${
+                    uploadingPoster
+                      ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                      : 'border-purple-300 hover:border-purple-500 bg-white hover:bg-purple-50'
+                  }`}>
+                    {uploadingPoster ? (
+                      <span className="text-gray-600 text-sm">Uploading poster...</span>
+                    ) : (
+                      <span className="text-purple-600 font-medium text-sm">+ Add Poster Image</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePosterUpload}
+                    disabled={uploadingPoster}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {error}
@@ -699,6 +922,14 @@ export const EventFormPage: React.FC = () => {
           </form>
         </div>
       </div>
+
+      {/* Map Picker Modal */}
+      <MapPickerModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        onSelect={handleMapSelection}
+        currentLink={location}
+      />
     </div>
   );
 };
