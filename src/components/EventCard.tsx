@@ -2,6 +2,7 @@ import { Heart, MapPin, Calendar, Users } from 'lucide-react';
 import { Event } from '../types';
 import { eventAPI } from '../lib/api';
 import { useState } from 'react';
+import { mockCategories } from '../lib/firestore';
 
 interface EventCardProps {
   event: Event;
@@ -102,7 +103,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         {/* Category & Stats */}
         <div className="flex items-center justify-between">
           <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
-            {event.primaryCategory.name}
+            {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
           </span>
           
           {event._count && (
