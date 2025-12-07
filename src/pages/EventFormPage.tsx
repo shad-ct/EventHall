@@ -124,6 +124,53 @@ export const EventFormPage: React.FC = () => {
     setLoading(true);
 
     try {
+      // Validation
+      if (!title.trim()) {
+        setError('Please enter event title');
+        setLoading(false);
+        return;
+      }
+      if (!description.trim()) {
+        setError('Please enter event description');
+        setLoading(false);
+        return;
+      }
+      if (!date) {
+        setError('Please select event date');
+        setLoading(false);
+        return;
+      }
+      if (!time) {
+        setError('Please select event time');
+        setLoading(false);
+        return;
+      }
+      if (!location.trim()) {
+        setError('Please enter event location');
+        setLoading(false);
+        return;
+      }
+      if (!district) {
+        setError('Please select district');
+        setLoading(false);
+        return;
+      }
+      if (selectedCategoryIds.length === 0) {
+        setError('Please select at least one category');
+        setLoading(false);
+        return;
+      }
+      if (!contactEmail.trim()) {
+        setError('Please enter contact email');
+        setLoading(false);
+        return;
+      }
+      if (!contactPhone.trim()) {
+        setError('Please enter contact phone');
+        setLoading(false);
+        return;
+      }
+
       const eventData = {
         title,
         description,
@@ -152,9 +199,11 @@ export const EventFormPage: React.FC = () => {
       if (isEdit && id) {
         await eventAPI.updateEvent(id, eventData);
       } else {
-        await eventAPI.createEvent(eventData);
+        const result = await eventAPI.createEvent(eventData);
+        console.log('Event created:', result);
       }
 
+      alert('Event saved successfully!');
       navigate('/admin/events');
     } catch (error: any) {
       console.error('Failed to save event:', error);
