@@ -928,7 +928,6 @@ export const EventFormPage: React.FC = () => {
         isOpen={showMapModal}
         onClose={() => setShowMapModal(false)}
         onSelect={handleMapSelection}
-        currentLink={location}
       />
     </div>
   );
