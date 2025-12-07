@@ -111,10 +111,20 @@ export const EventCard: React.FC<EventCardProps> = ({
             {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
           </span>
           
-          {event._count && (
+          {/* Like Count or Registration Count */}
+          {(event.likeCount !== undefined || event._count) && (
             <div className="flex items-center text-xs text-gray-500">
-              <Users className="w-3.5 h-3.5 mr-1" />
-              {event._count.registrations}
+              {event.likeCount !== undefined ? (
+                <>
+                  <Heart className="w-3.5 h-3.5 mr-1" />
+                  {event.likeCount}
+                </>
+              ) : (
+                <>
+                  <Users className="w-3.5 h-3.5 mr-1" />
+                  {event._count?.registrations}
+                </>
+              )}
             </div>
           )}
         </div>

@@ -389,18 +389,32 @@ export const getRegisteredEvents = async (): Promise<any> => {
   }
 
   // Fetch all registered events
-  const eventsRef = collection(db, 'events');
   const events: any[] = [];
 
-  // Firestore doesn't support 'in' with more than 10 items, so we batch
-  for (let i = 0; i < eventIds.length; i += 10) {
-    const batch = eventIds.slice(i, i + 10);
-    const eventsQuery = query(eventsRef, where('__name__', 'in', batch));
-    const eventsSnapshot = await getDocs(eventsQuery);
-    
-    eventsSnapshot.docs.forEach(doc => {
-      events.push({ id: doc.id, ...doc.data() });
-    });
+  for (const eventId of eventIds) {
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await getDoc(eventRef);
+      
+      if (eventSnap.exists()) {
+        // Get like count for this event
+        const likesQuery = query(
+          collection(db, 'likes'),
+          where('eventId', '==', eventId),
+          where('deleted', '==', false)
+        );
+        const likesSnapshot = await getDocs(likesQuery);
+        const likeCount = likesSnapshot.docs.length;
+
+        events.push({ 
+          id: eventSnap.id, 
+          ...eventSnap.data(),
+          likeCount 
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to fetch event ${eventId}:`, error);
+    }
   }
 
   return { events };
@@ -431,18 +445,32 @@ export const getLikedEvents = async (): Promise<any> => {
   }
 
   // Fetch all liked events
-  const eventsRef = collection(db, 'events');
   const events: any[] = [];
 
-  // Firestore doesn't support 'in' with more than 10 items, so we batch
-  for (let i = 0; i < eventIds.length; i += 10) {
-    const batch = eventIds.slice(i, i + 10);
-    const eventsQuery = query(eventsRef, where('__name__', 'in', batch));
-    const eventsSnapshot = await getDocs(eventsQuery);
-    
-    eventsSnapshot.docs.forEach(doc => {
-      events.push({ id: doc.id, ...doc.data() });
-    });
+  for (const eventId of eventIds) {
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await getDoc(eventRef);
+      
+      if (eventSnap.exists()) {
+        // Get like count for this event
+        const likesQuery = query(
+          collection(db, 'likes'),
+          where('eventId', '==', eventId),
+          where('deleted', '==', false)
+        );
+        const likesSnapshot = await getDocs(likesQuery);
+        const likeCount = likesSnapshot.docs.length;
+
+        events.push({ 
+          id: eventSnap.id, 
+          ...eventSnap.data(),
+          likeCount 
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to fetch event ${eventId}:`, error);
+    }
   }
 
   return { events };
