@@ -313,35 +313,139 @@ export const updateEvent = async (id: string, eventData: any): Promise<any> => {
 };
 
 /**
- * Like event
+ * Like event (toggle)
  */
-export const likeEvent = async (_id: string): Promise<any> => {
-  // TODO: Implement Firestore event like
-  return {};
+export const likeEvent = async (eventId: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const likeRef = doc(db, 'likes', `${currentUser.uid}_${eventId}`);
+  const likeSnap = await getDoc(likeRef);
+
+  if (likeSnap.exists()) {
+    // Unlike - remove the like
+    await updateDoc(likeRef, {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+    });
+    return { success: true, liked: false };
+  } else {
+    // Like - create the like
+    await setDoc(likeRef, {
+      userId: currentUser.uid,
+      eventId,
+      createdAt: serverTimestamp(),
+      deleted: false,
+    });
+    return { success: true, liked: true };
+  }
 };
 
 /**
  * Register for event
  */
-export const registerEvent = async (_id: string): Promise<any> => {
-  // TODO: Implement Firestore event registration
-  return {};
+export const registerEvent = async (eventId: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const registrationRef = doc(db, 'registrations', `${currentUser.uid}_${eventId}`);
+  const registrationSnap = await getDoc(registrationRef);
+
+  if (registrationSnap.exists()) {
+    return { success: true, message: 'Already registered' };
+  }
+
+  await setDoc(registrationRef, {
+    userId: currentUser.uid,
+    eventId,
+    createdAt: serverTimestamp(),
+  });
+
+  return { success: true, message: 'Registered successfully' };
 };
 
 /**
  * Get user's registered events
  */
 export const getRegisteredEvents = async (): Promise<any> => {
-  // TODO: Implement Firestore user registrations query
-  return { events: [] };
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Get all registrations for this user
+  const registrationsRef = collection(db, 'registrations');
+  const q = query(registrationsRef, where('userId', '==', currentUser.uid));
+  const querySnapshot = await getDocs(q);
+
+  const eventIds = querySnapshot.docs.map(doc => doc.data().eventId);
+
+  if (eventIds.length === 0) {
+    return { events: [] };
+  }
+
+  // Fetch all registered events
+  const eventsRef = collection(db, 'events');
+  const events: any[] = [];
+
+  // Firestore doesn't support 'in' with more than 10 items, so we batch
+  for (let i = 0; i < eventIds.length; i += 10) {
+    const batch = eventIds.slice(i, i + 10);
+    const eventsQuery = query(eventsRef, where('__name__', 'in', batch));
+    const eventsSnapshot = await getDocs(eventsQuery);
+    
+    eventsSnapshot.docs.forEach(doc => {
+      events.push({ id: doc.id, ...doc.data() });
+    });
+  }
+
+  return { events };
 };
 
 /**
  * Get user's liked events
  */
 export const getLikedEvents = async (): Promise<any> => {
-  // TODO: Implement Firestore user likes query
-  return { events: [] };
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Get all likes for this user (excluding deleted ones)
+  const likesRef = collection(db, 'likes');
+  const q = query(
+    likesRef, 
+    where('userId', '==', currentUser.uid),
+    where('deleted', '==', false)
+  );
+  const querySnapshot = await getDocs(q);
+
+  const eventIds = querySnapshot.docs.map(doc => doc.data().eventId);
+
+  if (eventIds.length === 0) {
+    return { events: [] };
+  }
+
+  // Fetch all liked events
+  const eventsRef = collection(db, 'events');
+  const events: any[] = [];
+
+  // Firestore doesn't support 'in' with more than 10 items, so we batch
+  for (let i = 0; i < eventIds.length; i += 10) {
+    const batch = eventIds.slice(i, i + 10);
+    const eventsQuery = query(eventsRef, where('__name__', 'in', batch));
+    const eventsSnapshot = await getDocs(eventsQuery);
+    
+    eventsSnapshot.docs.forEach(doc => {
+      events.push({ id: doc.id, ...doc.data() });
+    });
+  }
+
+  return { events };
 };
 
 /**
@@ -368,9 +472,37 @@ export const getUserEvents = async (): Promise<any> => {
 /**
  * Check event interactions (likes, registrations)
  */
-export const checkInteractions = async (_eventIds: string[]): Promise<any> => {
-  // TODO: Implement Firestore interaction checks
-  return { likedEventIds: [], registeredEventIds: [] };
+export const checkInteractions = async (eventIds: string[]): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser || eventIds.length === 0) {
+    return { likedEventIds: [], registeredEventIds: [] };
+  }
+
+  // Check likes
+  const likedEventIds: string[] = [];
+  
+  for (const eventId of eventIds) {
+    const likeRef = doc(db, 'likes', `${currentUser.uid}_${eventId}`);
+    const likeSnap = await getDoc(likeRef);
+    
+    if (likeSnap.exists() && !likeSnap.data().deleted) {
+      likedEventIds.push(eventId);
+    }
+  }
+
+  // Check registrations
+  const registeredEventIds: string[] = [];
+  
+  for (const eventId of eventIds) {
+    const regRef = doc(db, 'registrations', `${currentUser.uid}_${eventId}`);
+    const regSnap = await getDoc(regRef);
+    
+    if (regSnap.exists()) {
+      registeredEventIds.push(eventId);
+    }
+  }
+
+  return { likedEventIds, registeredEventIds };
 };
 
 /**
