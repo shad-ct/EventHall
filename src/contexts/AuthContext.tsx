@@ -9,7 +9,6 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   needsProfileCompletion: boolean;
@@ -48,18 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
       } else {
-        // Check for guest mode
-        const guestData = localStorage.getItem('guestUser');
-        if (guestData) {
-          try {
-            setUser(JSON.parse(guestData));
-          } catch (error) {
-            console.error('Failed to load guest user:', error);
-            localStorage.removeItem('guestUser');
-          }
-        } else {
-          setUser(null);
-        }
+        setUser(null);
       }
       
       setLoading(false);
@@ -70,14 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
-      if (user?.id.startsWith('guest-')) {
-        // Guest user - refresh from localStorage
-        const guestData = localStorage.getItem('guestUser');
-        if (guestData) {
-          setUser(JSON.parse(guestData));
-        }
-      } else if (firebaseUser) {
-        // Real user - refresh from backend
+      if (firebaseUser) {
         const data = await userAPI.getProfile();
         setUser(data.user);
         setNeedsProfileCompletion(!data.user.interests || data.user.interests.length === 0);
@@ -90,48 +71,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      // Clear any guest data
-      localStorage.removeItem('guestUser');
-      
-      // Sign in with Google
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-      
-      // Sync with backend
       const data = await authAPI.syncUser(idToken);
       setUser(data.user);
-      setFirebaseUser(result.user);
       setNeedsProfileCompletion(!data.user.fullName || !data.user.interests || data.user.interests.length === 0);
     } catch (error) {
-      console.error('Sign in error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signInAsGuest = async () => {
-    try {
-      setLoading(true);
-      
-      // Create guest user
-      const guestUser: User = {
-        id: `guest-${Date.now()}`,
-        firebaseUid: 'guest',
-        email: 'guest@eventhall.local',
-        fullName: 'Guest User',
-        role: 'GUEST',
-        collegeName: null,
-        isStudent: null,
-        interests: [],
-      } as User;
-      
-      // Store in localStorage
-      localStorage.setItem('guestUser', JSON.stringify(guestUser));
-      setUser(guestUser);
-      setNeedsProfileCompletion(false);
-    } catch (error) {
-      console.error('Guest sign in error:', error);
+      console.error('Google sign-in error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -140,14 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      // Clear guest data
-      localStorage.removeItem('guestUser');
-      
-      // Sign out from Firebase if logged in
       if (firebaseUser) {
         await firebaseSignOut(auth);
       }
-      
       setUser(null);
       setFirebaseUser(null);
       setNeedsProfileCompletion(false);
@@ -164,7 +105,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         firebaseUser,
         loading,
         signInWithGoogle,
-        signInAsGuest,
         signOut,
         refreshUser,
         needsProfileCompletion,
