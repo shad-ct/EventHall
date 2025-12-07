@@ -6,12 +6,8 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Prevent server files from being included
-[functions]
-  # No functions to deploy - backend is separate
-  directory = "none"
-
-# Security: Ignore server code patterns
-[build.ignore]
-  # Don't trigger rebuilds for server changes
-  ignore = "server/**"
+# Redirects for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
