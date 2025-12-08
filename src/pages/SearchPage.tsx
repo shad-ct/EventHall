@@ -25,6 +25,7 @@ export const SearchPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [isFree, setIsFree] = useState<boolean | null>(null);
+  const [sortBy, setSortBy] = useState<'date' | 'popularity' | 'free'>('date');
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
@@ -85,6 +86,20 @@ export const SearchPage: React.FC = () => {
     fetchEvents();
   };
 
+  const handleSortChange = (newSort: 'date' | 'popularity' | 'free') => {
+    setSortBy(newSort);
+    // Sort events based on selection
+    let sorted = [...events];
+    if (newSort === 'date') {
+      sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } else if (newSort === 'popularity') {
+      sorted.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+    } else if (newSort === 'free') {
+      sorted.sort((a, b) => (a.isFree === b.isFree ? 0 : a.isFree ? -1 : 1));
+    }
+    setEvents(sorted);
+  };
+
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
     fetchEvents({ category: categoryId });
@@ -101,6 +116,7 @@ export const SearchPage: React.FC = () => {
     setDateFrom('');
     setDateTo('');
     setIsFree(null);
+    setSortBy('date');
     fetchEvents({
       category: '',
       district: '',
@@ -244,6 +260,46 @@ export const SearchPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Sort Option */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSortChange('date')}
+                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left ${
+                      sortBy === 'date'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700'
+                    }`}
+                  >
+                    📅 By Date (Earliest First)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSortChange('popularity')}
+                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left ${
+                      sortBy === 'popularity'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700'
+                    }`}
+                  >
+                    ❤️ By Popularity (Most Liked)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSortChange('free')}
+                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left ${
+                      sortBy === 'free'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700'
+                    }`}
+                  >
+                    💰 Free Events First
+                  </button>
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-2 pt-4">
                 <button
@@ -295,10 +351,44 @@ export const SearchPage: React.FC = () => {
           </div>
         ) : events.length > 0 ? (
           <>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">
                 {events.length} Event{events.length !== 1 ? 's' : ''} Found
               </h2>
+              
+              {/* Sort Options */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => handleSortChange('date')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    sortBy === 'date'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  📅 By Date
+                </button>
+                <button
+                  onClick={() => handleSortChange('popularity')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    sortBy === 'popularity'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  ❤️ Popular
+                </button>
+                <button
+                  onClick={() => handleSortChange('free')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    sortBy === 'free'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  💰 Free First
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {events.map((event) => (
