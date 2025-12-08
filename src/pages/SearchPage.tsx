@@ -93,7 +93,8 @@ export const SearchPage: React.FC = () => {
     if (newSort === 'date') {
       sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } else if (newSort === 'popularity') {
-      sorted.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+      // Sort by title alphabetically as a placeholder for popularity
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
     } else if (newSort === 'free') {
       sorted.sort((a, b) => (a.isFree === b.isFree ? 0 : a.isFree ? -1 : 1));
     }
@@ -102,12 +103,65 @@ export const SearchPage: React.FC = () => {
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    fetchEvents({ category: categoryId });
+    setLoading(true);
+    fetchEvents({ category: categoryId }).then(() => {
+      setShowFilters(false);
+    });
+  };
+
+  const handleDistrictChange = (district: string) => {
+    setSelectedDistrict(district);
+    setLoading(true);
+    fetchEvents({ 
+      district: district || undefined,
+      category: selectedCategory || undefined,
+    });
+  };
+
+  const handleDateFromChange = (date: string) => {
+    setDateFrom(date);
+    setLoading(true);
+    fetchEvents({ 
+      dateFrom: date || undefined,
+      category: selectedCategory || undefined,
+      district: selectedDistrict || undefined,
+    });
+  };
+
+  const handleDateToChange = (date: string) => {
+    setDateTo(date);
+    setLoading(true);
+    fetchEvents({ 
+      dateTo: date || undefined,
+      category: selectedCategory || undefined,
+      district: selectedDistrict || undefined,
+      dateFrom: dateFrom || undefined,
+    });
+  };
+
+  const handleFreeChange = (isFreeValue: boolean | null) => {
+    setIsFree(isFreeValue);
+    setLoading(true);
+    fetchEvents({ 
+      isFree: isFreeValue !== null ? isFreeValue : undefined,
+      category: selectedCategory || undefined,
+      district: selectedDistrict || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    });
   };
 
   const handleApplyFilters = () => {
-    fetchEvents();
-    setShowFilters(false);
+    setLoading(true);
+    fetchEvents({
+      category: selectedCategory || undefined,
+      district: selectedDistrict || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      isFree: isFree !== null ? isFree : undefined,
+    }).then(() => {
+      setShowFilters(false);
+    });
   };
 
   const handleClearFilters = () => {
@@ -248,6 +302,12 @@ export const SearchPage: React.FC = () => {
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+                <button
+                  onClick={() => handleCategoryClick(selectedCategory)}
+                  className="mt-2 w-full py-1.5 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200"
+                >
+                  Apply Category Filter
+                </button>
               </div>
 
               {/* District Filter */}
@@ -255,7 +315,7 @@ export const SearchPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
                 <select
                   value={selectedDistrict}
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                  onChange={(e) => handleDistrictChange(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Districts</option>
@@ -272,13 +332,13 @@ export const SearchPage: React.FC = () => {
                   <input
                     type="date"
                     value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    onChange={(e) => handleDateFromChange(e.target.value)}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                   <input
                     type="date"
                     value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    onChange={(e) => handleDateToChange(e.target.value)}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -290,7 +350,7 @@ export const SearchPage: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsFree(null)}
+                    onClick={() => handleFreeChange(null)}
                     className={`flex-1 py-2 px-4 rounded-lg border-2 transition-colors ${
                       isFree === null
                         ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -301,7 +361,7 @@ export const SearchPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsFree(true)}
+                    onClick={() => handleFreeChange(true)}
                     className={`flex-1 py-2 px-4 rounded-lg border-2 transition-colors ${
                       isFree === true
                         ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -312,7 +372,7 @@ export const SearchPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsFree(false)}
+                    onClick={() => handleFreeChange(false)}
                     className={`flex-1 py-2 px-4 rounded-lg border-2 transition-colors ${
                       isFree === false
                         ? 'border-blue-600 bg-blue-50 text-blue-700'
