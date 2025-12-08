@@ -26,6 +26,7 @@ export const SearchPage: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [isFree, setIsFree] = useState<boolean | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'popularity' | 'free'>('date');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
@@ -109,6 +110,14 @@ export const SearchPage: React.FC = () => {
     });
   };
 
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
   const handleDistrictChange = (district: string) => {
     setSelectedDistrict(district);
   };
@@ -127,8 +136,10 @@ export const SearchPage: React.FC = () => {
 
   const handleApplyFilters = () => {
     setLoading(true);
+    // If multiple categories selected, use first one for API (or join them)
+    const categoryParam = selectedCategories.length > 0 ? selectedCategories[0] : selectedCategory;
     fetchEvents({
-      category: selectedCategory || undefined,
+      category: categoryParam || undefined,
       district: selectedDistrict || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
@@ -140,6 +151,7 @@ export const SearchPage: React.FC = () => {
 
   const handleClearFilters = () => {
     setSelectedCategory('');
+    setSelectedCategories([]);
     setSelectedDistrict('');
     setDateFrom('');
     setDateTo('');
@@ -265,24 +277,14 @@ export const SearchPage: React.FC = () => {
             <div className="p-4 space-y-6">
               {/* Category Filter */}
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Category</label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setSelectedCategory('')}
-                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left font-medium ${
-                      selectedCategory === ''
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    All Categories
-                  </button>
+                <label className="block text-sm font-semibold text-gray-800 mb-3">Categories (Select Multiple)</label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                   {categories.map((cat) => (
                     <button
                       key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left font-medium ${
-                        selectedCategory === cat.id
+                      onClick={() => toggleCategory(cat.id)}
+                      className={`py-1.5 px-2 rounded text-xs font-medium transition-colors border-2 ${
+                        selectedCategories.includes(cat.id)
                           ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                       }`}
