@@ -1,20 +1,24 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { getCategories } from '../lib/firestore';
 import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
-import { Search, Filter, X } from 'lucide-react';
+import { CategoryBrowser } from '../components/CategoryBrowser';
+import { FilterModal } from '../components/FilterModal';
+import { Search, Filter } from 'lucide-react';
+
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+  const { categorySlug } = useParams<{ categorySlug?: string }>();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<EventCategory[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [allEvents, setAllEvents] = useState<Event[]>([]); // All events fetched once
+  const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [likedEventIds, setLikedEventIds] = useState<string[]>([]);
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
@@ -28,86 +32,117 @@ export const SearchPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'date' | 'popularity' | 'free'>('date');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  const districts = [
-    'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
-    'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 'Malappuram',
-    'Kozhikode', 'Wayanad', 'Kannur', 'Kasaragod'
-  ];
 
+
+  // Fetch categories on mount (lightweight)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await getCategories();
-        setCategories(data);
+        const catData = await getCategories();
+        setCategories(catData);
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }
     };
     fetchCategories();
+  }, []);
 
-    // Check for category param in URL
-    const categoryParam = searchParams.get('category');
-    if (categoryParam) {
-      setSelectedCategory(categoryParam);
-      fetchEvents({ category: categoryParam });
-    }
-  }, [searchParams]);
-
-  const fetchEvents = async (filters?: any) => {
-    setLoading(true);
-    try {
-      const params = {
-        search: searchQuery || undefined,
-        category: filters?.category || selectedCategory || undefined,
-        district: filters?.district || selectedDistrict || undefined,
-        dateFrom: filters?.dateFrom || dateFrom || undefined,
-        dateTo: filters?.dateTo || dateTo || undefined,
-        isFree: filters?.isFree !== undefined ? filters.isFree : (isFree !== null ? isFree : undefined),
-      };
-
-      const data = await eventAPI.getEvents(params);
-      setEvents(data.events);
-
-      // Fetch interactions
-      if (data.events.length > 0) {
-        const eventIds = data.events.map((e: Event) => e.id);
-        const interactions = await eventAPI.checkInteractions(eventIds);
-        setLikedEventIds(interactions.likedEventIds);
-        setRegisteredEventIds(interactions.registeredEventIds);
+  // Handle category URL changes and fetch events only when needed
+  useEffect(() => {
+    const handleCategoryChange = async () => {
+      // Check for category in URL path (e.g., /search/music)
+      if (categorySlug) {
+        // Find category by slug
+        const matchedCategory = categories.find(c => c.slug === categorySlug);
+        if (matchedCategory) {
+          setSelectedCategory(matchedCategory.id);
+          setSelectedCategories([matchedCategory.id]);
+        } else if (categorySlug === 'other') {
+          // Handle 'other' category
+          setSelectedCategory('other');
+          setSelectedCategories(['other']);
+        }
+      } else {
+        // No category in URL, clear category selection
+        setSelectedCategory('');
+        setSelectedCategories([]);
       }
-    } catch (error) {
-      console.error('Failed to fetch events:', error);
-    } finally {
-      setLoading(false);
+
+      // Also check for category param in query string (backwards compatibility)
+      const categoryParam = searchParams.get('category');
+      if (categoryParam && !categorySlug) {
+        setSelectedCategory(categoryParam);
+        setSelectedCategories([categoryParam]);
+      }
+    };
+
+    if (categories.length > 0) {
+      handleCategoryChange();
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categorySlug, categories]);
+
+  // Fetch events only when there's a reason to show them
+  useEffect(() => {
+    const shouldFetchEvents = categorySlug || searchQuery.trim();
+    
+    if (!shouldFetchEvents) {
+      // Don't fetch events on main /search page, just show categories
+      setLoading(false);
+      return;
+    }
+
+    const fetchEvents = async () => {
+      setLoading(true);
+      try {
+        const eventData = await eventAPI.getEvents({});
+        setAllEvents(eventData.events);
+
+        // Fetch interactions for all events
+        if (eventData.events.length > 0) {
+          const eventIds = eventData.events.map((e: Event) => e.id);
+          const interactions = await eventAPI.checkInteractions(eventIds);
+          setLikedEventIds(interactions.likedEventIds);
+          setRegisteredEventIds(interactions.registeredEventIds);
+        }
+      } catch (error) {
+        console.error('Failed to fetch events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [categorySlug, searchQuery]);
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchEvents();
+    // No fetch, just update searchQuery (already handled by state)
   };
 
   const handleSortChange = (newSort: 'date' | 'popularity' | 'free') => {
     setSortBy(newSort);
-    // Sort events based on selection
-    let sorted = [...events];
-    if (newSort === 'date') {
-      sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    } else if (newSort === 'popularity') {
-      // Sort by title alphabetically as a placeholder for popularity
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (newSort === 'free') {
-      sorted.sort((a, b) => (a.isFree === b.isFree ? 0 : a.isFree ? -1 : 1));
-    }
-    setEvents(sorted);
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    setLoading(true);
-    fetchEvents({ category: categoryId }).then(() => {
-      setShowFilters(false);
-    });
+    // Find the category slug
+    let slug = categoryId;
+    if (categoryId !== 'other') {
+      const category = categories.find(c => c.id === categoryId);
+      if (category) {
+        slug = category.slug;
+      }
+    }
+    // Navigate to the new URL with category in the path
+    navigate(`/search/${slug}`);
+  };
+
+  const handleBackToAllCategories = () => {
+    // Clear category selection and navigate to main search
+    setSelectedCategory('');
+    setSelectedCategories([]);
+    navigate('/search');
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -134,19 +169,9 @@ export const SearchPage: React.FC = () => {
     setIsFree(isFreeValue);
   };
 
+
   const handleApplyFilters = () => {
-    setLoading(true);
-    // If multiple categories selected, use first one for API (or join them)
-    const categoryParam = selectedCategories.length > 0 ? selectedCategories[0] : selectedCategory;
-    fetchEvents({
-      category: categoryParam || undefined,
-      district: selectedDistrict || undefined,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      isFree: isFree !== null ? isFree : undefined,
-    }).then(() => {
-      setShowFilters(false);
-    });
+    setShowFilters(false);
   };
 
   const handleClearFilters = () => {
@@ -157,19 +182,125 @@ export const SearchPage: React.FC = () => {
     setDateTo('');
     setIsFree(null);
     setSortBy('date');
-    fetchEvents({
-      category: '',
-      district: '',
-      dateFrom: '',
-      dateTo: '',
-      isFree: null,
-    });
     setShowFilters(false);
   };
 
   const handleEventClick = (eventId: string) => {
     navigate(`/event/${eventId}`);
   };
+
+  // Helper function to get all category IDs from an event (primary + additional)
+  const getEventCategoryIds = (event: Event): string[] => {
+    const ids: string[] = [];
+    
+    // Add primary category ID
+    const primaryCatId = (event as any).primaryCategoryId || event.primaryCategory?.id;
+    if (primaryCatId) {
+      ids.push(primaryCatId);
+    }
+    
+    // Add additional category IDs
+    const additionalCatIds = (event as any).additionalCategoryIds || [];
+    if (Array.isArray(additionalCatIds)) {
+      ids.push(...additionalCatIds);
+    } else if (Array.isArray(event.additionalCategories)) {
+      // If additionalCategories is an array of objects with category property
+      event.additionalCategories.forEach(ac => {
+        if (ac.category?.id) {
+          ids.push(ac.category.id);
+        }
+      });
+    }
+    
+    // If no categories found, mark as 'other'
+    if (ids.length === 0) {
+      ids.push('other');
+    }
+    
+    return ids;
+  };
+
+  // Memoized filtered and sorted events
+  const events = useMemo(() => {
+    let filtered = [...allEvents];
+
+    // Category filter (multiple) - if no categories selected, show all (default behavior)
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(e => {
+        const eventCatIds = getEventCategoryIds(e);
+        return eventCatIds.some(catId => selectedCategories.includes(catId));
+      });
+    } else if (selectedCategory) {
+      filtered = filtered.filter(e => {
+        const eventCatIds = getEventCategoryIds(e);
+        return eventCatIds.includes(selectedCategory);
+      });
+    }
+    // If both are empty, no category filter is applied (show all events)
+
+    // District filter
+    if (selectedDistrict) {
+      filtered = filtered.filter(e => e.district === selectedDistrict);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      filtered = filtered.filter(e => new Date(e.date) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      filtered = filtered.filter(e => new Date(e.date) <= new Date(dateTo));
+    }
+
+    // Entry fee filter
+    if (isFree !== null) {
+      filtered = filtered.filter(e => e.isFree === isFree);
+    }
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(e =>
+        e.title.toLowerCase().includes(q) ||
+        (e.description && e.description.toLowerCase().includes(q))
+      );
+    }
+
+    // Sorting
+    if (sortBy === 'date') {
+      filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } else if (sortBy === 'popularity') {
+      // Sort by likes + registrations count (most popular first)
+      filtered.sort((a, b) => {
+        const aLikes = a._count?.likes || 0;
+        const bLikes = b._count?.likes || 0;
+        const aRegs = a._count?.registrations || 0;
+        const bRegs = b._count?.registrations || 0;
+        const aTotal = aLikes + aRegs;
+        const bTotal = bLikes + bRegs;
+        
+        // Sort descending (most popular first)
+        if (bTotal !== aTotal) {
+          return bTotal - aTotal;
+        }
+        // If same popularity, sort by date (earliest first)
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
+    } else if (sortBy === 'free') {
+      // Sort free events first, then paid events
+      filtered.sort((a, b) => {
+        const aIsFree = a.isFree === true;
+        const bIsFree = b.isFree === true;
+        if (aIsFree === bIsFree) {
+          // If both have same free status, sort by date
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+        // Free events come first
+        return aIsFree ? -1 : 1;
+      });
+    }
+
+    return filtered;
+  }, [allEvents, selectedCategories, selectedCategory, selectedDistrict, dateFrom, dateTo, isFree, searchQuery, sortBy]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -183,34 +314,7 @@ export const SearchPage: React.FC = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  // Auto-search on input change
-                  if (e.target.value.trim()) {
-                    setTimeout(() => {
-                      const newParams = {
-                        search: e.target.value || undefined,
-                        category: selectedCategory || undefined,
-                        district: selectedDistrict || undefined,
-                        dateFrom: dateFrom || undefined,
-                        dateTo: dateTo || undefined,
-                        isFree: isFree !== null ? isFree : undefined,
-                      };
-                      eventAPI.getEvents(newParams).then(data => {
-                        setEvents(data.events);
-                        if (data.events.length > 0) {
-                          const eventIds = data.events.map((e: Event) => e.id);
-                          eventAPI.checkInteractions(eventIds).then(interactions => {
-                            setLikedEventIds(interactions.likedEventIds);
-                            setRegisteredEventIds(interactions.registeredEventIds);
-                          });
-                        }
-                      }).catch(err => console.error('Search failed:', err));
-                    }, 300);
-                  } else {
-                    setEvents([]);
-                  }
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search events..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -248,252 +352,101 @@ export const SearchPage: React.FC = () => {
               >
                 ❤️ Popular
               </button>
-              <button
-                onClick={() => handleSortChange('free')}
-                className={`px-2 py-1 rounded text-sm transition-colors ${
-                  sortBy === 'free'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                💰 Free
-              </button>
             </div>
           )}
         </div>
       </div>
 
       {/* Filter Modal */}
-      {showFilters && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white rounded-t-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
-              <h3 className="text-lg font-semibold">Filters & Sorting</h3>
-              <button onClick={() => setShowFilters(false)}>
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-6 pb-24">
-              {/* Category Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Categories (Select Multiple)</label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`py-1.5 px-2 rounded text-xs font-medium transition-colors border-2 ${
-                        selectedCategories.includes(cat.id)
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* District Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">District</label>
-                <select
-                  value={selectedDistrict}
-                  onChange={(e) => handleDistrictChange(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                >
-                  <option value="">All Districts</option>
-                  {districts.map((district) => (
-                    <option key={district} value={district}>{district}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Date Range Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Date Range</label>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-gray-600 block mb-1">From Date</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => handleDateFromChange(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-600 block mb-1">To Date</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => handleDateToChange(e.target.value)}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Entry Fee Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Entry Fee</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleFreeChange(null)}
-                    className={`py-2 px-3 rounded-lg border-2 transition-colors font-medium text-sm ${
-                      isFree === null
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFreeChange(true)}
-                    className={`py-2 px-3 rounded-lg border-2 transition-colors font-medium text-sm ${
-                      isFree === true
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    💰 Free
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFreeChange(false)}
-                    className={`py-2 px-3 rounded-lg border-2 transition-colors font-medium text-sm ${
-                      isFree === false
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    💵 Paid
-                  </button>
-                </div>
-              </div>
-
-              {/* Sort Options */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Sort By</label>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSortChange('date')}
-                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left font-medium ${
-                      sortBy === 'date'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    📅 Earliest Date First
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSortChange('popularity')}
-                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left font-medium ${
-                      sortBy === 'popularity'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    ⭐ Most Popular
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSortChange('free')}
-                    className={`w-full py-2 px-4 rounded-lg border-2 transition-colors text-left font-medium ${
-                      sortBy === 'free'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    💰 Free Events First
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-8 sticky bottom-0 bg-white border-t-2 border-gray-200 -mx-4 px-4 py-4">
-                <button
-                  onClick={handleClearFilters}
-                  className="flex-1 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
-                >
-                  Clear All
-                </button>
-                <button
-                  onClick={() => {
-                    handleApplyFilters();
-                    setShowFilters(false);
-                  }}
-                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <FilterModal
+        show={showFilters}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        selectedDistrict={selectedDistrict}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        isFree={isFree}
+        sortBy={sortBy}
+        onClose={() => setShowFilters(false)}
+        onToggleCategory={toggleCategory}
+        onClearAllCategories={() => {
+          setSelectedCategories([]);
+          setSelectedCategory('');
+        }}
+        onDistrictChange={handleDistrictChange}
+        onDateFromChange={handleDateFromChange}
+        onDateToChange={handleDateToChange}
+        onFreeChange={handleFreeChange}
+        onSortChange={handleSortChange}
+        onClearFilters={handleClearFilters}
+        onApplyFilters={handleApplyFilters}
+      />
 
       <div className="max-w-6xl mx-auto p-4">
-        {/* Category Tiles */}
-        {!searchQuery && !selectedCategory && events.length === 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Browse by Category</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategoryClick(category.id)}
-                  className="py-4 px-4 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-600 hover:bg-blue-50 transition-colors text-center font-medium text-gray-700 hover:text-blue-700"
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
+        {/* Category Page Header - Show when a category is selected */}
+        {!loading && selectedCategory && (
+          <div className="mb-6">
+            <button
+              onClick={handleBackToAllCategories}
+              className="text-blue-600 hover:text-blue-700 font-medium mb-3 flex items-center gap-1"
+            >
+              ← Back to all categories
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900 capitalize">
+              {selectedCategory === 'other' 
+                ? 'Other Events' 
+                : categories.find(c => c.id === selectedCategory)?.name || 'Events'}
+            </h1>
+            {events.length > 0 && (
+              <p className="text-gray-600 mt-1">
+                {events.length} event{events.length !== 1 ? 's' : ''} found
+              </p>
+            )}
           </div>
         )}
 
-        {/* Events Grid */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading events...</p>
-          </div>
-        ) : events.length === 0 && (searchQuery || selectedCategory) ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">No events found matching your criteria</p>
-          </div>
-        ) : events.length > 0 ? (
+        {/* Category Tiles - Show only on main search page */}
+        {!searchQuery && !selectedCategory && !loading && (
+          <CategoryBrowser
+            categories={categories}
+            onCategoryClick={handleCategoryClick}
+          />
+        )}
+
+        {/* Events Grid - Only show when there's a filter/search/category selected */}
+        {(searchQuery || selectedCategory) && (
           <>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {events.length} Event{events.length !== 1 ? 's' : ''} Found
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {events.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  isLiked={likedEventIds.includes(event.id)}
-                  isRegistered={registeredEventIds.includes(event.id)}
-                  onClick={() => handleEventClick(event.id)}
-                  onLikeToggle={() => {
-                    setLikedEventIds(prev =>
-                      prev.includes(event.id)
-                        ? prev.filter(id => id !== event.id)
-                        : [...prev, event.id]
-                    );
-                  }}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading events...</p>
+              </div>
+            ) : events.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">No events found matching your criteria</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    isLiked={likedEventIds.includes(event.id)}
+                    isRegistered={registeredEventIds.includes(event.id)}
+                    onClick={() => handleEventClick(event.id)}
+                    onLikeToggle={() => {
+                      setLikedEventIds(prev =>
+                        prev.includes(event.id)
+                          ? prev.filter(id => id !== event.id)
+                          : [...prev, event.id]
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </>
-        ) : null}
+        )}
       </div>
 
       <BottomNav />

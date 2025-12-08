@@ -539,24 +539,127 @@ export const checkInteractions = async (eventIds: string[]): Promise<any> => {
 };
 
 /**
- * Admin Collection Operations - Stubs for now
- * Full admin features will be migrated to Firestore soon
+ * Admin Collection Operations
  */
+
+/**
+ * Submit admin application
+ */
+export const submitAdminApplication = async (motivationText: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Check if user already has a pending application
+  const applicationsRef = collection(db, 'adminApplications');
+  const existingQuery = query(
+    applicationsRef,
+    where('userId', '==', currentUser.uid),
+    where('status', '==', 'PENDING')
+  );
+  const existingSnapshot = await getDocs(existingQuery);
+
+  if (!existingSnapshot.empty) {
+    throw new Error('You already have a pending application');
+  }
+
+  // Create new application
+  const userDoc = await getUser(currentUser.uid);
+  
+  await addDoc(applicationsRef, {
+    userId: currentUser.uid,
+    motivationText,
+    status: 'PENDING',
+    createdAt: serverTimestamp(),
+    user: {
+      id: currentUser.uid,
+      email: userDoc?.email || currentUser.email,
+      fullName: userDoc?.fullName || currentUser.displayName,
+      photoUrl: userDoc?.photoUrl || currentUser.photoURL,
+      isStudent: userDoc?.isStudent,
+      collegeName: userDoc?.collegeName,
+    },
+  });
+
+  return { success: true, message: 'Application submitted successfully' };
+};
 
 /**
  * Get admin applications
  */
-export const getAdminApplications = async (_status?: string): Promise<any> => {
-  // TODO: Implement Firestore admin applications query
-  return { applications: [] };
+export const getAdminApplications = async (status?: string): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const applicationsRef = collection(db, 'adminApplications');
+  let q;
+
+  if (status) {
+    q = query(applicationsRef, where('status', '==', status));
+  } else {
+    q = query(applicationsRef);
+  }
+
+  const snapshot = await getDocs(q);
+  
+  const applications = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return { applications };
 };
 
 /**
  * Review admin application
  */
-export const reviewAdminApplication = async (_id: string, _status: 'APPROVED' | 'REJECTED'): Promise<any> => {
-  // TODO: Implement Firestore admin application review
-  return { success: true };
+export const reviewAdminApplication = async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const applicationRef = doc(db, 'adminApplications', id);
+  const applicationSnap = await getDoc(applicationRef);
+
+  if (!applicationSnap.exists()) {
+    throw new Error('Application not found');
+  }
+
+  const application = applicationSnap.data();
+
+  // Update application status
+  await updateDoc(applicationRef, {
+    status,
+    reviewedByUserId: currentUser.uid,
+    reviewedAt: serverTimestamp(),
+  });
+
+  // If approved, update user role to EVENT_ADMIN
+  if (status === 'APPROVED') {
+    const userRef = doc(db, 'users', application.userId);
+    await updateDoc(userRef, {
+      role: 'EVENT_ADMIN',
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  return { success: true, message: `Application ${status.toLowerCase()} successfully` };
 };
 
 /**
@@ -683,4 +786,91 @@ export const getAllEvents = async (statusFilter?: string): Promise<any> => {
 export const getAllUsers = async (_role?: string): Promise<any> => {
   // TODO: Implement Firestore users query
   return { users: [] };
+};
+
+/**
+ * Toggle event featured status (Ultimate admin only)
+ */
+export const toggleEventFeatured = async (eventId: string, isFeatured: boolean): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventRef = doc(db, 'events', eventId);
+  const updateData: any = {
+    isFeatured,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (isFeatured) {
+    updateData.featuredAt = serverTimestamp();
+    updateData.featuredBy = currentUser.uid;
+  }
+
+  await updateDoc(eventRef, updateData);
+
+  return { success: true, message: isFeatured ? 'Event featured successfully' : 'Event unfeatured successfully' };
+};
+
+/**
+ * Toggle event publish status (Ultimate admin only)
+ */
+export const toggleEventPublish = async (eventId: string, shouldPublish: boolean): Promise<any> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is ultimate admin
+  const userDoc = await getUser(currentUser.uid);
+  if (userDoc?.role !== 'ULTIMATE_ADMIN') {
+    throw new Error('Unauthorized - Ultimate admin only');
+  }
+
+  const eventRef = doc(db, 'events', eventId);
+  const newStatus = shouldPublish ? 'PUBLISHED' : 'DRAFT';
+  
+  const updateData: any = {
+    status: newStatus,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (shouldPublish) {
+    updateData.publishedBy = currentUser.uid;
+    updateData.publishedAt = serverTimestamp();
+  } else {
+    updateData.unpublishedBy = currentUser.uid;
+    updateData.unpublishedAt = serverTimestamp();
+  }
+
+  await updateDoc(eventRef, updateData);
+
+  return { success: true, message: shouldPublish ? 'Event published successfully' : 'Event unpublished successfully' };
+};
+
+/**
+ * Get featured events
+ */
+export const getFeaturedEvents = async (): Promise<any> => {
+  const eventsRef = collection(db, 'events');
+  const q = query(
+    eventsRef, 
+    where('isFeatured', '==', true),
+    where('status', '==', 'PUBLISHED')
+  );
+  const snapshot = await getDocs(q);
+  
+  const events = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return { events };
 };

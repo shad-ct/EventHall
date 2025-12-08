@@ -105,6 +105,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/search/:categorySlug"
+        element={
+          <ProtectedRoute>
+            <SearchPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <ProtectedRoute>

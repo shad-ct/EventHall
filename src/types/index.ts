@@ -45,6 +45,9 @@ export interface Event {
   youtubeUrl?: string;
   bannerUrl?: string;
   status: 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
+  isFeatured?: boolean;
+  featuredAt?: string;
+  featuredBy?: string;
   createdBy: {
     id: string;
     fullName: string;

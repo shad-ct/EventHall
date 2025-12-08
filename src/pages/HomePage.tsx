@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { eventAPI } from '../lib/api';
+import { eventAPI, adminAPI } from '../lib/api';
 import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
+import { BannerSlider } from '../components/BannerSlider';
 import { ChevronRight, Calendar } from 'lucide-react';
 
 interface EventsByCategory {
@@ -18,6 +19,7 @@ export const HomePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [eventsByCategory, setEventsByCategory] = useState<EventsByCategory>({});
+  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedEventIds, setLikedEventIds] = useState<string[]>([]);
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
@@ -30,6 +32,10 @@ export const HomePage: React.FC = () => {
       }
 
       try {
+        // Fetch featured events first
+        const featuredData = await adminAPI.getFeaturedEvents();
+        setFeaturedEvents(featuredData.events || []);
+
         // If user has no interests, prompt them to set interests
         if (!user.interests || user.interests.length === 0) {
           setLoading(false);
@@ -81,12 +87,14 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 shadow-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 shadow-lg">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">EVENT HALL</h1>
-          <p className="text-blue-100">Discover events tailored for you</p>
+          <h1 className="text-3xl font-bold">EVENT HALL</h1>
         </div>
       </div>
+
+      {/* Featured Events Banner */}
+      <BannerSlider events={featuredEvents} onEventClick={handleEventClick} />
 
       <div className="max-w-6xl mx-auto p-4">
         {!user?.interests || user.interests.length === 0 ? (

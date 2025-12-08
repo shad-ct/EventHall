@@ -19,6 +19,7 @@ import {
   getUserEvents as fsGetUserEvents,
   checkInteractions as fsCheckInteractions,
   getCategories,
+  submitAdminApplication,
   getAdminApplications,
   reviewAdminApplication,
   getPendingEvents,
@@ -26,6 +27,9 @@ import {
   getAllUsers,
   getAllEvents,
   deleteEvent,
+  toggleEventFeatured,
+  getFeaturedEvents,
+  toggleEventPublish,
 } from './firestore';
 
 export const authAPI = {
@@ -57,11 +61,7 @@ export const eventAPI = {
 };
 
 export const adminAPI = {
-  applyForAdmin: async (_motivationText: string) => {
-    // TODO: Implement Firestore admin application
-    // For now, return success response to avoid throwing
-    return { success: true, message: 'Application submitted. Admin will review soon.' };
-  },
+  applyForAdmin: submitAdminApplication,
   getApplications: getAdminApplications,
   reviewApplication: reviewAdminApplication,
   getPendingEvents: getPendingEvents,
@@ -69,6 +69,9 @@ export const adminAPI = {
   updateEventStatus: updateEventAdminStatus,
   deleteEvent: deleteEvent,
   getUsers: getAllUsers,
+  toggleEventFeatured: toggleEventFeatured,
+  getFeaturedEvents: getFeaturedEvents,
+  toggleEventPublish: toggleEventPublish,
 };
 
 export default {};
