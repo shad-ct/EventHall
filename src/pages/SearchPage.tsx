@@ -274,7 +274,7 @@ export const SearchPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-4 space-y-6">
+            <div className="p-4 space-y-6 pb-24">
               {/* Category Filter */}
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-3">Categories (Select Multiple)</label>
@@ -416,7 +416,7 @@ export const SearchPage: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 sticky bottom-0 bg-white">
+              <div className="flex gap-2 pt-8 sticky bottom-0 bg-white border-t-2 border-gray-200 -mx-4 px-4 py-4">
                 <button
                   onClick={handleClearFilters}
                   className="flex-1 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
