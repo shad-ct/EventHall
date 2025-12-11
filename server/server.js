@@ -20,6 +20,78 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
+// ==================== MAP/LOCATION ENDPOINTS ====================
+app.get('/api/maps/search', async (req, res) => {
+  const { q, limit = '5', countrycodes = 'in' } = req.query;
+
+  if (!q || typeof q !== 'string') {
+    return res.status(400).json({ error: 'Query parameter q is required' });
+  }
+
+  const searchUrl = new URL('https://nominatim.openstreetmap.org/search');
+  searchUrl.searchParams.set('q', q);
+  searchUrl.searchParams.set('format', 'json');
+  searchUrl.searchParams.set('limit', String(limit));
+  searchUrl.searchParams.set('countrycodes', String(countrycodes));
+
+  try {
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'User-Agent': 'EventHall/1.0 (contact@eventhall.app)',
+        'Accept-Language': 'en',
+      },
+    });
+
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json({ error: 'Failed to fetch search results from Nominatim' });
+    }
+
+    const data = await response.json();
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json(data);
+  } catch (error) {
+    console.error('Nominatim search failed:', error);
+    res.status(500).json({ error: 'Map search failed' });
+  }
+});
+
+app.get('/api/maps/reverse', async (req, res) => {
+  const { lat, lon } = req.query;
+
+  if (!lat || !lon) {
+    return res.status(400).json({ error: 'lat and lon are required' });
+  }
+
+  const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse');
+  reverseUrl.searchParams.set('format', 'json');
+  reverseUrl.searchParams.set('lat', String(lat));
+  reverseUrl.searchParams.set('lon', String(lon));
+
+  try {
+    const response = await fetch(reverseUrl.toString(), {
+      headers: {
+        'User-Agent': 'EventHall/1.0 (contact@eventhall.app)',
+        'Accept-Language': 'en',
+      },
+    });
+
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json({ error: 'Failed to reverse geocode with Nominatim' });
+    }
+
+    const data = await response.json();
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json(data);
+  } catch (error) {
+    console.error('Nominatim reverse geocode failed:', error);
+    res.status(500).json({ error: 'Reverse geocoding failed' });
+  }
+});
+
 // ==================== AUTH ENDPOINTS ====================
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;

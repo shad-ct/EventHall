@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Event } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, MapPin } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 
 interface BannerSliderProps {
   events: Event[];
@@ -10,6 +10,8 @@ interface BannerSliderProps {
 export const BannerSlider: React.FC<BannerSliderProps> = ({ events, onEventClick }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % events.length);
@@ -22,6 +24,33 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ events, onEventClick
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
     setIsAutoPlaying(false);
+  };
+
+  // Handle touch swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    setTouchEnd(e.changedTouches[0].clientX);
+    handleSwipe(e.targetTouches.length === 0);
+  };
+
+  const handleSwipe = (isEnd: boolean) => {
+    if (!isEnd || events.length <= 1) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      goToNext();
+      setIsAutoPlaying(false);
+    }
+    if (isRightSwipe) {
+      goToPrevious();
+      setIsAutoPlaying(false);
+    }
   };
 
   // Auto-play functionality
@@ -37,7 +66,7 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ events, onEventClick
 
   if (events.length === 0) {
     return (
-      <div className="h-[22vh] mt-9 mb-3 mx-3 bg-gray-200 flex items-center justify-center text-gray-500 font-semibold rounded-lg">
+      <div className="h-[22vh] lg:h-80 mt-9 mb-3 mx-3 bg-gray-200 flex items-center justify-center text-gray-500 font-semibold rounded-lg">
         No featured events
       </div>
     );
@@ -46,13 +75,17 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ events, onEventClick
   const currentEvent = events[currentIndex];
 
   return (
-    <div className="relative h-[22vh] mt-9 mb-3 mx-3 overflow-hidden rounded-lg shadow-lg group">
+    <div 
+      className="relative h-[22vh] lg:h-80 mt-2 mb-3 mx-3 overflow-hidden rounded-lg shadow-lg group cursor-grab active:cursor-grabbing"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Banner Image/Background */}
       <div
         className="absolute inset-0 bg-cover bg-center transition-all duration-500"
         style={{
-          backgroundImage: currentEvent.bannerUrl 
-            ? `url(${currentEvent.bannerUrl})` 
+          backgroundImage: currentEvent.bannerUrl
+            ? `url(${currentEvent.bannerUrl})`
             : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         }}
       >
@@ -61,47 +94,23 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ events, onEventClick
       </div>
 
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6 cursor-pointer" onClick={() => onEventClick(currentEvent.id)}>
-        <h3 className="text-white text-2xl font-bold mb-2 line-clamp-2 drop-shadow-lg">
+      <div className="absolute inset-0 flex flex-col justify-end pb-8 sm:pb-6 p-3 sm:p-6 cursor-pointer" onClick={() => onEventClick(currentEvent.id)}>
+        <h3 className="text-white text-lg sm:text-2xl font-bold mb-1 sm:mb-2 line-clamp-2 drop-shadow-lg">
           {currentEvent.title}
         </h3>
-        <div className="flex items-center gap-4 text-white/90 text-sm">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 text-white/90 text-xs sm:text-sm">
           <div className="flex items-center gap-1">
-            <Calendar className="w-4 h-4" />
-            <span>{new Date(currentEvent.date).toLocaleDateString()}</span>
+            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="line-clamp-1">{new Date(currentEvent.date).toLocaleDateString()}</span>
           </div>
           <div className="flex items-center gap-1">
-            <MapPin className="w-4 h-4" />
-            <span>{currentEvent.location}</span>
+            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="line-clamp-1 truncate">{currentEvent.location}</span>
           </div>
         </div>
       </div>
 
-      {/* Navigation Arrows */}
-      {events.length > 1 && (
-        <>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              goToPrevious();
-              setIsAutoPlaying(false);
-            }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-2 rounded-full transition-all opacity-0 group-hover:opacity-100"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              goToNext();
-              setIsAutoPlaying(false);
-            }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-2 rounded-full transition-all opacity-0 group-hover:opacity-100"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </>
-      )}
+      {/* Navigation Arrows - Removed, using swipe instead */}
 
       {/* Dots Indicator */}
       {events.length > 1 && (

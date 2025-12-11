@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { getCategories } from '../lib/firestore';
-import { uploadFileToFirebase } from '../lib/firebase-storage';
+import { uploadFile } from '../lib/file-storage';
 import { MapPickerModal } from '../components/MapPickerModal';
 import { EventCategory } from '../types';
 import { ArrowLeft, X, MapPin, Download, Trash2 } from 'lucide-react';
@@ -46,6 +46,14 @@ export const EventFormPage: React.FC = () => {
   const [posterImages, setPosterImages] = useState<{ name: string; url: string }[]>([]);
   const [uploadingBrochure, setUploadingBrochure] = useState(false);
   const [uploadingPoster, setUploadingPoster] = useState(false);
+
+  const todayInputValue = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
   const districts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
@@ -172,7 +180,7 @@ export const EventFormPage: React.FC = () => {
     setError('');
 
     try {
-      const url = await uploadFileToFirebase(file, 'brochures');
+      const url = await uploadFile(file, 'brochures');
       setBrochureFiles([...brochureFiles, { name: file.name, url }]);
       alert('Brochure uploaded successfully!');
     } catch (error: any) {
@@ -184,47 +192,59 @@ export const EventFormPage: React.FC = () => {
   };
 
   const handlePosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file');
-      return;
-    }
-
-    // Validate file size (max 32MB for ImgBB)
-    if (file.size > 32 * 1024 * 1024) {
-      setError('Image size must be less than 32MB');
-      return;
+    const validFiles = [] as File[];
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please upload image files only');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > 32 * 1024 * 1024) {
+        setError('Each image must be under 32MB');
+        e.target.value = '';
+        return;
+      }
+      validFiles.push(file);
     }
 
     setUploadingPoster(true);
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('expiration', '0'); // Never expire
+      const uploadedPosters: { name: string; url: string }[] = [];
 
-      const response = await fetch('https://api.imgbb.com/1/upload?key=c31b5340081dec80f2fdc7b4c878a037', {
-        method: 'POST',
-        body: formData,
-      });
+      for (const file of validFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('expiration', '0');
 
-      const data = await response.json();
+        const response = await fetch('https://api.imgbb.com/1/upload?key=c31b5340081dec80f2fdc7b4c878a037', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (data.success) {
-        setPosterImages([...posterImages, { name: file.name, url: data.data.url }]);
-        alert('Poster uploaded successfully!');
-      } else {
-        throw new Error(data.error?.message || 'Upload failed');
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error?.message || 'Upload failed');
+        }
+
+        uploadedPosters.push({ name: file.name, url: data.data.url });
+      }
+
+      if (uploadedPosters.length) {
+        setPosterImages(prev => [...prev, ...uploadedPosters]);
+        alert(`Uploaded ${uploadedPosters.length} poster${uploadedPosters.length > 1 ? 's' : ''} successfully!`);
       }
     } catch (error: any) {
       console.error('Failed to upload poster:', error);
       setError('Failed to upload poster. Please try again.');
     } finally {
       setUploadingPoster(false);
+      e.target.value = '';
     }
   };
 
@@ -282,6 +302,14 @@ export const EventFormPage: React.FC = () => {
         setLoading(false);
         return;
       }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventDateValue = new Date(`${date}T00:00:00`);
+      if (eventDateValue < today) {
+        setError('Event date cannot be in the past');
+        setLoading(false);
+        return;
+      }
       if (!time) {
         setError('Please select event time');
         setLoading(false);
@@ -320,7 +348,7 @@ export const EventFormPage: React.FC = () => {
         time,
         location,
         district,
-        primaryCategoryId: selectedCategoryIds[0],
+        primaryCategory: { id: selectedCategoryIds[0] },
         contactEmail,
         contactPhone,
         isFree,
@@ -328,7 +356,9 @@ export const EventFormPage: React.FC = () => {
 
       // Add optional fields only if they have values
       if (googleMapsLink?.trim()) eventData.googleMapsLink = googleMapsLink;
-      if (selectedCategoryIds.length > 1) eventData.additionalCategoryIds = selectedCategoryIds.slice(1);
+      if (selectedCategoryIds.length > 1) {
+        eventData.additionalCategories = selectedCategoryIds.slice(1).map((id) => ({ id }));
+      }
       if (customCategoryTags.length > 0) eventData.customCategories = customCategoryTags;
       if (!isFree && entryFee?.trim()) eventData.entryFee = entryFee;
       if (prizeDetails?.trim()) eventData.prizeDetails = prizeDetails;
@@ -424,6 +454,7 @@ export const EventFormPage: React.FC = () => {
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
+                    min={todayInputValue}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   />
@@ -888,6 +919,7 @@ export const EventFormPage: React.FC = () => {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handlePosterUpload}
                     disabled={uploadingPoster}
                     className="hidden"

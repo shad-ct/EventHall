@@ -69,7 +69,7 @@ export const SettingsPage: React.FC = () => {
       if (!user) throw new Error('Not authenticated');
 
       // Update profile
-      await updateUserProfile(user.firebaseUid, {
+      await updateUserProfile(user.id, {
         fullName: fullName.trim(),
         isStudent,
         collegeName: isStudent ? collegeName.trim() : null,
@@ -77,7 +77,7 @@ export const SettingsPage: React.FC = () => {
 
       // Update interests
       const selectedCategories = categories.filter(cat => selectedInterests.includes(cat.id));
-      await updateUserInterests(user.firebaseUid, selectedCategories);
+      await updateUserInterests(user.id, selectedCategories);
 
       await refreshUser();
       setShowEditProfile(false);

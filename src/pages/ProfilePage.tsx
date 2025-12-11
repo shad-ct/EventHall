@@ -6,6 +6,7 @@ import { Event } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
 import { Settings, Calendar } from 'lucide-react';
+import { DesktopNav } from '../components/DesktopNav';
 
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -73,9 +74,11 @@ export const ProfilePage: React.FC = () => {
   const appliedEventIds = appliedEvents.map(e => e.id);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-10">
+      <DesktopNav />
+
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-white ">
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
@@ -102,10 +105,10 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b">
+          <div className="flex ">
             <button
               onClick={() => setActiveTab('applied')}
-              className={`flex-1 py-3 font-medium transition-colors relative ${
+              className={`flex-1 font-medium transition-colors relative ${
                 activeTab === 'applied'
                   ? 'text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -118,7 +121,7 @@ export const ProfilePage: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('liked')}
-              className={`flex-1 py-3 font-medium transition-colors relative ${
+              className={`flex-1 py-2 font-medium transition-colors relative ${
                 activeTab === 'liked'
                   ? 'text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'

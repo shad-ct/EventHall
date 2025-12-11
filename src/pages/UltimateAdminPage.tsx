@@ -364,7 +364,7 @@ export const UltimateAdminPage: React.FC = () => {
                           </h3>
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
-                              {event.primaryCategory.name}
+                              {event.primaryCategory?.name || 'Uncategorized'}
                             </span>
                             <span className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">
                               Pending Approval

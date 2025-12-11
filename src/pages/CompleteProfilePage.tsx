@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { updateUserProfile, updateUserInterests, getCategories } from '../lib/firestore';
 import { EventCategory } from '../types';
-import { auth } from '../lib/firebase';
 
 export const CompleteProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -63,7 +62,7 @@ export const CompleteProfilePage: React.FC = () => {
     setError('');
 
     try {
-      const uid = auth.currentUser?.uid;
+      const uid = user?.id;
       if (!uid) throw new Error('Not authenticated');
 
       // Get selected category objects

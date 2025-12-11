@@ -1,9 +1,7 @@
 /**
- * API Client - DEPRECATED FOR AUTHENTICATION
- * 
- * This file is kept as a stub for backward compatibility.
- * All authentication now uses Firebase Firestore directly.
- * Event and other features delegate to firestore.ts functions.
+ * API Client wrapper for backwards compatibility.
+ * Authentication now uses the backend API via AuthContext.
+ * Event and admin features delegate to firestore.ts helpers.
  */
 
 // Import Firestore functions for delegation

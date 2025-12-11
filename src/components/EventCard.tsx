@@ -35,9 +35,9 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   const handleLikeClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (liking) return;
-    
+
     setLiking(true);
     try {
       await eventAPI.likeEvent(event.id);
@@ -52,7 +52,7 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <div
-      className="bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow h-[420px] flex flex-col"
+      className="bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow h-[360px] flex flex-col"
       onClick={onClick}
     >
       {/* Banner Image */}
@@ -68,7 +68,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             {event.title.substring(0, 2).toUpperCase()}
           </div>
         )}
-        
+
         {/* Like Button */}
         <button
           onClick={handleLikeClick}
@@ -94,6 +94,12 @@ export const EventCard: React.FC<EventCardProps> = ({
         <div className="flex items-center text-xs text-gray-600 mb-2">
           <Calendar className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
           <span className="truncate">{formatDate(event.date, event.time)}</span>
+
+          {event.isFree && (
+            <span className="inline-block text-xs bg-green-50 text-green-700 px-4 py-1 rounded-full font-medium">
+              Free Entry
+            </span>
+          )}
         </div>
 
         {/* Title */}
@@ -106,11 +112,36 @@ export const EventCard: React.FC<EventCardProps> = ({
         </div>
 
         {/* Category & Stats */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium truncate max-w-[60%]">
-            {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
-          </span>
-          
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex flex-wrap gap-1 max-w-[70%]">
+            {(() => {
+              const chips = [
+                event.primaryCategory,
+                ...(event.additionalCategories?.map((ac) => ac.category) || []),
+                ...(((event as any).additionalCategoryIds || []).map((catId: string) =>
+                  mockCategories.find((c) => c.id === catId)
+                )),
+              ].filter(Boolean);
+
+              if (chips.length === 0) {
+                return (
+                  <span className="text-[11px] px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700">
+                    Event
+                  </span>
+                );
+              }
+
+              return chips.map((cat: any, idx: number) => (
+                <span
+                  key={`${cat.id || cat.slug}-${idx}`}
+                  className={`text-[11px] px-2 py-1 rounded-full font-medium ${idx === 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  {cat.name}
+                </span>
+              ));
+            })()}
+          </div>
+
           {/* Like Count or Registration Count */}
           {(event.likeCount !== undefined || event._count) && (
             <div className="flex items-center text-xs text-gray-500">
@@ -129,14 +160,6 @@ export const EventCard: React.FC<EventCardProps> = ({
           )}
         </div>
 
-        {/* Free/Paid Badge */}
-        <div className="mt-auto">
-          {event.isFree && (
-            <span className="inline-block text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
-              Free Entry
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );

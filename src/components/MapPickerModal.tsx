@@ -29,6 +29,8 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
   // Default coordinates (center of India)
   const DEFAULT_LAT = 20.5937;
   const DEFAULT_LNG = 78.9629;
@@ -95,7 +97,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
     try {
       setLoading(true);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+        `${API_BASE_URL}/maps/reverse?lat=${lat}&lon=${lng}`
       );
       const data = await response.json();
       setAddressName(data.address?.city || data.address?.town || data.address?.county || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
@@ -120,7 +122,12 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
     setSearchLoading(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=in`
+        `${API_BASE_URL}/maps/search?${new URLSearchParams({
+          q: query,
+          format: 'json',
+          limit: '5',
+          countrycodes: 'in',
+        }).toString()}`
       );
       const data = await response.json();
       console.log('Search results:', data);
@@ -137,6 +144,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
     } catch (error) {
       console.error('Search failed:', error);
       setSearchResults([]);
+      setShowSearchResults(false);
     } finally {
       setSearchLoading(false);
     }

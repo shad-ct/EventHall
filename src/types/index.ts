@@ -12,7 +12,7 @@ export interface UserInterest {
 
 export interface User {
   id: string;
-  firebaseUid: string;
+  username?: string;
   email: string;
   fullName: string;
   photoUrl?: string;
@@ -33,6 +33,9 @@ export interface Event {
   googleMapsLink?: string;
   primaryCategory: EventCategory;
   additionalCategories?: Array<{ category: EventCategory }>;
+  brochureFiles?: Array<{ name: string; url: string }>;
+  posterImages?: Array<{ name: string; url: string }>;
+  socialLinks?: Array<{ url: string; label?: string }>;
   entryFee?: string;
   isFree: boolean;
   prizeDetails?: string;

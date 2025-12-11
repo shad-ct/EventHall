@@ -1,14 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User as FirebaseUser, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
-import { syncUserToFirestore, getUser } from '../lib/firestore';
+import { login as loginApi, getUser as getUserFromBackend } from '../lib/api-client';
 import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   needsProfileCompletion: boolean;
@@ -26,87 +23,65 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
-  // Listen to Firebase auth state changes
+  // Load user from storage on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      
-      if (firebaseUser) {
-        try {
-          // Sync user with Firestore
-          const userData = await syncUserToFirestore(firebaseUser);
-          setUser(userData);
-          setNeedsProfileCompletion(!userData.fullName || !userData.interests || userData.interests.length === 0);
-        } catch (error) {
-          console.error('Failed to sync user with Firestore:', error);
-          setUser(null);
-        }
-      } else {
-        setUser(null);
+    const stored = localStorage.getItem('authUser');
+    if (stored) {
+      try {
+        const parsed: User = JSON.parse(stored);
+        setUser(parsed);
+        setNeedsProfileCompletion(!parsed.fullName || !parsed.interests || parsed.interests.length === 0);
+      } catch (error) {
+        console.error('Failed to parse stored user', error);
+        localStorage.removeItem('authUser');
       }
-      
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
-  const refreshUser = async () => {
+  const persistUser = (userData: User) => {
+    setUser(userData);
+    setNeedsProfileCompletion(!userData.fullName || !userData.interests || userData.interests.length === 0);
+    localStorage.setItem('authUser', JSON.stringify(userData));
+  };
+
+  const login = async (username: string, password: string) => {
+    setLoading(true);
     try {
-      if (firebaseUser) {
-        const userData = await getUser(firebaseUser.uid);
-        if (userData) {
-          setUser(userData);
-          setNeedsProfileCompletion(!userData.interests || userData.interests.length === 0);
-        }
+      const { user: loggedInUser } = await loginApi(username, password);
+      persistUser(loggedInUser);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const userData = await getUserFromBackend(user.id);
+      if (userData) {
+        persistUser(userData);
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      setLoading(true);
-      const result = await signInWithPopup(auth, googleProvider);
-      // Sync user to Firestore (happens automatically in onAuthStateChanged)
-      // Just ensure the user is synced
-      const userData = await syncUserToFirestore(result.user);
-      setUser(userData);
-      setNeedsProfileCompletion(!userData.fullName || !userData.interests || userData.interests.length === 0);
-    } catch (error) {
-      console.error('Google sign-in error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signOut = async () => {
-    try {
-      if (firebaseUser) {
-        await firebaseSignOut(auth);
-      }
-      setUser(null);
-      setFirebaseUser(null);
-      setNeedsProfileCompletion(false);
-    } catch (error) {
-      console.error('Sign out error:', error);
-      throw error;
-    }
+    setUser(null);
+    setNeedsProfileCompletion(false);
+    localStorage.removeItem('authUser');
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        firebaseUser,
         loading,
-        signInWithGoogle,
+        login,
         signOut,
         refreshUser,
         needsProfileCompletion,

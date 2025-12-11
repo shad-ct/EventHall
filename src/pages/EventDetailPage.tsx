@@ -1,9 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { mockCategories } from '../lib/firestore';
 import { Event } from '../types';
-import { ArrowLeft, MapPin, Calendar, Users, Heart, ExternalLink, Phone, Mail, Instagram, Facebook, Youtube } from 'lucide-react';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Users,
+  Heart,
+  ExternalLink,
+  Phone,
+  Mail,
+  Instagram,
+  Facebook,
+  Youtube,
+  Linkedin,
+  Github,
+  Globe,
+  Link as LinkIcon,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +31,7 @@ export const EventDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [posterIndex, setPosterIndex] = useState(0);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -34,6 +54,10 @@ export const EventDetailPage: React.FC = () => {
 
     fetchEvent();
   }, [id]);
+
+  useEffect(() => {
+    setPosterIndex(0);
+  }, [event?.posterImages?.length]);
 
   const handleLike = async () => {
     if (!id) return;
@@ -63,6 +87,72 @@ export const EventDetailPage: React.FC = () => {
     }
   };
 
+  const formatDate = (dateStr: string, timeStr: string) => {
+    const date = new Date(dateStr);
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return `${date.toLocaleDateString('en-US', options)} at ${timeStr}`;
+  };
+
+  const categories = useMemo(() => {
+    if (!event) return [] as any[];
+
+    const primary = event.primaryCategory
+      ? event.primaryCategory
+      : (event as any).primaryCategoryId
+        ? mockCategories.find((c) => c.id === (event as any).primaryCategoryId)
+        : null;
+
+    const additional = event.additionalCategories?.map((ac) => ac.category) || [];
+    const legacyAdditional = ((event as any).additionalCategoryIds || []).map((catId: string) =>
+      mockCategories.find((c) => c.id === catId)
+    );
+    return [primary, ...additional, ...legacyAdditional].filter(Boolean);
+  }, [event]);
+
+  const parseSocialLink = (url?: string) => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, '');
+      const pathPart = parsed.pathname.replace(/^\//, '').split('/')[0] || host;
+
+      let Icon = Globe;
+      if (host.includes('instagram')) Icon = Instagram;
+      else if (host.includes('facebook')) Icon = Facebook;
+      else if (host.includes('youtube')) Icon = Youtube;
+      else if (host.includes('linkedin')) Icon = Linkedin;
+      else if (host.includes('github')) Icon = Github;
+
+      return {
+        url,
+        domain: host,
+        display: pathPart,
+        Icon,
+      };
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const socialLinks = useMemo(() => {
+    const rawLinks = [
+      event?.instagramUrl,
+      event?.facebookUrl,
+      event?.youtubeUrl,
+      ...(event?.socialLinks?.map((l) => l.url) || []),
+    ].filter(Boolean) as string[];
+
+    const unique = Array.from(new Set(rawLinks));
+    return unique
+      .map((url) => parseSocialLink(url))
+      .filter(Boolean) as Array<{ url: string; domain: string; display: string; Icon: any }>;
+  }, [event]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -86,17 +176,6 @@ export const EventDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const formatDate = (dateStr: string, timeStr: string) => {
-    const date = new Date(dateStr);
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return `${date.toLocaleDateString('en-US', options)} at ${timeStr}`;
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -129,17 +208,18 @@ export const EventDetailPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           {/* Category & Status */}
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium">
-              {event.primaryCategory?.name || mockCategories.find(c => c.id === (event as any).primaryCategoryId)?.name || 'Event'}
-            </span>
-            {(event as any).additionalCategoryIds?.map((catId: string) => {
-              const category = mockCategories.find(c => c.id === catId);
-              return category ? (
-                <span key={catId} className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                  {category.name}
+            {categories.length === 0 ? (
+              <span className="text-xs px-3 py-1 rounded-full font-medium bg-gray-100 text-gray-700">Event</span>
+            ) : (
+              categories.map((cat, idx) => (
+                <span
+                  key={`${cat.id || cat.slug}-${idx}`}
+                  className={`text-xs px-3 py-1 rounded-full font-medium ${idx === 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  {cat.name}
                 </span>
-              ) : null;
-            })}
+              ))
+            )}
             {(event as any).customCategories?.map((catName: string, idx: number) => (
               <span key={`custom-${idx}`} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
                 {catName}
@@ -197,6 +277,74 @@ export const EventDetailPage: React.FC = () => {
             <p className="text-gray-700 whitespace-pre-line">{event.description}</p>
           </div>
 
+          {/* Brochures */}
+          {event.brochureFiles && event.brochureFiles.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-3">Brochures</h2>
+              <div className="space-y-2">
+                {event.brochureFiles.map((file, idx) => (
+                  <a
+                    key={file.url || idx}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between bg-blue-50 border border-blue-100 hover:border-blue-200 px-4 py-3 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-blue-800 font-medium">
+                      <Download className="w-4 h-4" />
+                      <span className="truncate">{file.name || `Brochure ${idx + 1}`}</span>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-blue-500" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Posters */}
+          {event.posterImages && event.posterImages.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-3">Event Posters</h2>
+              <div className="relative bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                <img
+                  src={event.posterImages[posterIndex]?.url}
+                  alt={event.posterImages[posterIndex]?.name || `Poster ${posterIndex + 1}`}
+                  className="w-full max-h-[360px] object-contain bg-white"
+                />
+
+                {event.posterImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setPosterIndex((prev) => (prev - 1 + event.posterImages.length) % event.posterImages.length)}
+                      className="absolute top-1/2 -translate-y-1/2 left-2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setPosterIndex((prev) => (prev + 1) % event.posterImages.length)}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+              {event.posterImages.length > 1 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto">
+                  {event.posterImages.map((poster, idx) => (
+                    <button
+                      key={poster.url || idx}
+                      onClick={() => setPosterIndex(idx)}
+                      className={`border rounded-md overflow-hidden w-20 h-16 flex-shrink-0 ${idx === posterIndex ? 'border-blue-500' : 'border-transparent hover:border-gray-200'}`}
+                    >
+                      <img src={poster.url} alt={poster.name || `Poster ${idx + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Entry Fee */}
           {!event.isFree && event.entryFee && (
             <div className="mb-6">
@@ -233,40 +381,28 @@ export const EventDetailPage: React.FC = () => {
           </div>
 
           {/* Social Media */}
-          {(event.instagramUrl || event.facebookUrl || event.youtubeUrl) && (
+          {socialLinks.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">Follow Us</h2>
-              <div className="flex gap-3">
-                {event.instagramUrl && (
+              <h2 className="text-xl font-semibold text-gray-900 mb-3">Social Links</h2>
+              <div className="flex flex-wrap gap-3">
+                {socialLinks.map(({ url, domain, display, Icon }) => (
                   <a
-                    href={event.instagramUrl}
+                    key={url}
+                    href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-pink-50 text-pink-600 rounded-lg hover:bg-pink-100"
+                    className="flex items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <Instagram className="w-6 h-6" />
+                    <Icon className="w-5 h-5 text-blue-600" />
+                    <div className="text-sm text-left">
+                      <div className="font-semibold text-gray-900">{domain}</div>
+                      <div className="text-xs text-gray-600 flex items-center gap-1">
+                        <LinkIcon className="w-3 h-3" />
+                        <span className="truncate max-w-[160px]">{display}</span>
+                      </div>
+                    </div>
                   </a>
-                )}
-                {event.facebookUrl && (
-                  <a
-                    href={event.facebookUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
-                  >
-                    <Facebook className="w-6 h-6" />
-                  </a>
-                )}
-                {event.youtubeUrl && (
-                  <a
-                    href={event.youtubeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
-                  >
-                    <Youtube className="w-6 h-6" />
-                  </a>
-                )}
+                ))}
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 [build]
-  # Build the frontend only (Firebase-only architecture)
+  # Build the frontend
   command = "npm run build"
   publish = "dist"
   
@@ -7,8 +7,7 @@
   NODE_VERSION = "20"
   # Exclude documentation from secrets scanning
   SECRETS_SCAN_OMIT_PATHS = "*.md,.env.example"
-  # These are safe to expose in frontend code (Firebase public config)
-  SECRETS_SCAN_OMIT_KEYS = "VITE_FIREBASE_API_KEY,VITE_FIREBASE_AUTH_DOMAIN,VITE_FIREBASE_PROJECT_ID,VITE_FIREBASE_STORAGE_BUCKET,VITE_FIREBASE_MESSAGING_SENDER_ID,VITE_FIREBASE_APP_ID,VITE_FIREBASE_MEASUREMENT_ID"
+  # Keep frontend vars in Netlify UI; nothing to omit here by default
 
 # Redirects for SPA routing
 [[redirects]]

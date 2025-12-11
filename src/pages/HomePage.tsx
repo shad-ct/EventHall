@@ -6,6 +6,8 @@ import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
 import { BannerSlider } from '../components/BannerSlider';
+import { SearchBar } from '../components/SearchBar';
+import { DesktopNav } from '../components/DesktopNav';
 import { ChevronRight, Calendar } from 'lucide-react';
 
 interface EventsByCategory {
@@ -23,6 +25,7 @@ export const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [likedEventIds, setLikedEventIds] = useState<string[]>([]);
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -49,7 +52,7 @@ export const HomePage: React.FC = () => {
         // Fetch user interactions
         const allEventIds = Object.values(data.eventsByCategory)
           .flatMap((cat: any) => cat.events.map((e: any) => e.id));
-        
+
         if (allEventIds.length > 0) {
           const interactions = await eventAPI.checkInteractions(allEventIds);
           setLikedEventIds(interactions.likedEventIds);
@@ -85,18 +88,37 @@ export const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 shadow-lg">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold">EVENT HALL</h1>
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-10">
+      <DesktopNav />
+
+      {/* Mobile Header */}
+      <div className="bg-white text-gray-900 border-b border-gray-200 shadow-sm md:hidden">
+        <div className="max-w-6xl mx-auto px-3 py-3 sm:py-4 flex items-center">
+          <h1 className="text-xl sm:text-2xl font-bold">EVENT HALL</h1>
         </div>
       </div>
 
+      <div className="px-3 py-3 sm:py-4 md:hidden">
+        <div className="max-w-6xl mx-auto">
+          <SearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSearch={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+              } else {
+                navigate('/search');
+              }
+            }}
+            showFilterButton={false}
+          />
+        </div>
+      </div>
       {/* Featured Events Banner */}
       <BannerSlider events={featuredEvents} onEventClick={handleEventClick} />
 
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="w-full p-4">
         {!user?.interests || user.interests.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -126,7 +148,7 @@ export const HomePage: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-8 ">
             {Object.entries(eventsByCategory).map(([categoryId, { category, events }]) => (
               <div key={categoryId}>
                 {/* Category Header */}
@@ -144,8 +166,8 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 {/* Horizontal Scroll of Event Cards */}
-                <div className="flex overflow-x-auto gap-5 pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth">
-                  {events.map((event) => (
+                <div className="flex overflow-x-auto gap-5 pb-4 ml-1 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth w-full">
+                  {events.slice(0, 6).map((event) => (
                     <div key={event.id} className="flex-shrink-0 w-[320px] snap-start">
                       <EventCard
                         event={event}
