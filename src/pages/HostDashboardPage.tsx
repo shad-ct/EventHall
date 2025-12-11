@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Users, Calendar, Settings, BarChart3 } from 'lucide-react';
+import { RegistrationManagement } from '../components/RegistrationManagement';
 
 interface AdminSession {
   username: string;
@@ -8,9 +9,10 @@ interface AdminSession {
   loginTime: string;
 }
 
-const AdminDashboardPage = () => {
+const HostDashboardPage = () => {
   const [adminData, setAdminData] = useState<AdminSession | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'events' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'events' | 'registrations' | 'settings'>('users');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalEvents: 0,
@@ -22,7 +24,7 @@ const AdminDashboardPage = () => {
     // Check if admin is logged in
     const session = localStorage.getItem('adminSession');
     if (!session) {
-      navigate('/admin');
+      navigate('/host');
       return;
     }
     setAdminData(JSON.parse(session));
@@ -45,7 +47,7 @@ const AdminDashboardPage = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('adminSession');
-    navigate('/admin');
+    navigate('/host');
   };
 
   if (!adminData) {
@@ -63,7 +65,7 @@ const AdminDashboardPage = () => {
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+              <h1 className="text-3xl font-bold mb-2">Event Host Dashboard</h1>
               <p className="text-purple-100">
                 Welcome, <span className="font-semibold">{adminData.username}</span> • <span className="uppercase text-xs tracking-wide">{adminData.role}</span>
               </p>
@@ -106,7 +108,7 @@ const AdminDashboardPage = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="flex border-b">
-            {(['users', 'events', 'settings'] as const).map((tab) => (
+            {(['users', 'events', 'registrations', 'settings'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -116,6 +118,7 @@ const AdminDashboardPage = () => {
               >
                 {tab === 'users' && <Users className="w-5 h-5" />}
                 {tab === 'events' && <Calendar className="w-5 h-5" />}
+                {tab === 'registrations' && <BarChart3 className="w-5 h-5" />}
                 {tab === 'settings' && <Settings className="w-5 h-5" />}
                 <span className="capitalize">{tab}</span>
                 {activeTab === tab && (
@@ -149,12 +152,40 @@ const AdminDashboardPage = () => {
               </div>
             )}
 
+            {activeTab === 'registrations' && (
+              <div>
+                {!selectedEventId ? (
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">View Registrations</h2>
+                    <p className="text-gray-600 mb-6">Select an event to view and manage its registrations</p>
+                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center py-12">
+                      <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">Events with registrations will appear here</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      onClick={() => setSelectedEventId(null)}
+                      className="mb-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      ← Back to Event Selection
+                    </button>
+                    <RegistrationManagement
+                      eventId={selectedEventId}
+                      eventTitle={'Event'}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'settings' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Admin Settings</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Event Host Settings</h2>
                 <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200 mb-6">
                   <div className="space-y-3">
-                    <p className="text-gray-700"><span className="font-semibold">Admin User:</span> {adminData.username}</p>
+                    <p className="text-gray-700"><span className="font-semibold">Host User:</span> {adminData.username}</p>
                     <p className="text-gray-700"><span className="font-semibold">Role:</span> <span className="inline-block px-3 py-1 bg-purple-200 text-purple-800 rounded-full text-sm font-medium">{adminData.role}</span></p>
                     <p className="text-gray-700"><span className="font-semibold">Login Time:</span> {new Date(adminData.loginTime).toLocaleString()}</p>
                   </div>
@@ -196,4 +227,4 @@ const StatCard = ({ title, value, color, icon }: StatCardProps) => {
   );
 };
 
-export default AdminDashboardPage;
+export default HostDashboardPage;

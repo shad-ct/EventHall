@@ -14,12 +14,6 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
-});
-
 // ==================== MAP/LOCATION ENDPOINTS ====================
 app.get('/api/maps/search', async (req, res) => {
   const { q, limit = '5', countrycodes = 'in' } = req.query;
@@ -193,7 +187,9 @@ app.post('/api/events', async (req, res) => {
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
   }
+  console.log('Creating event with registrationMethod:', req.body.registrationMethod);
   const result = await models.createEvent(req.body, userId);
+  console.log('Event created with ID:', result.event?.id);
   res.json(result);
 });
 
@@ -202,7 +198,10 @@ app.put('/api/events/:id', async (req, res) => {
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
   }
+  console.log('Updating event', req.params.id, 'with registrationMethod:', req.body.registrationMethod);
+  console.log('Full update data:', JSON.stringify(req.body, null, 2));
   const result = await models.updateEvent(req.params.id, req.body, userId);
+  console.log('Event updated successfully');
   res.json(result);
 });
 
@@ -221,6 +220,15 @@ app.post('/api/events/:id/register', async (req, res) => {
     return res.status(401).json({ error: 'User ID required' });
   }
   const result = await models.registerEvent(req.params.id, userId);
+  res.json(result);
+});
+
+app.delete('/api/events/:id/register', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+  const result = await models.unregisterEvent(req.params.id, userId);
   res.json(result);
 });
 
@@ -261,9 +269,9 @@ app.post('/api/events/interactions/check', async (req, res) => {
   res.json(result);
 });
 
-// ==================== ADMIN ENDPOINTS ====================
+// ==================== HOST ENDPOINTS ====================
 
-app.post('/api/admin/applications', async (req, res) => {
+app.post('/api/host/applications', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -273,7 +281,7 @@ app.post('/api/admin/applications', async (req, res) => {
   res.json(result);
 });
 
-app.get('/api/admin/applications', async (req, res) => {
+app.get('/api/host/applications', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -283,7 +291,7 @@ app.get('/api/admin/applications', async (req, res) => {
   res.json(result);
 });
 
-app.post('/api/admin/applications/:id/review', async (req, res) => {
+app.post('/api/host/applications/:id/review', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -293,7 +301,7 @@ app.post('/api/admin/applications/:id/review', async (req, res) => {
   res.json(result);
 });
 
-app.get('/api/admin/events/pending', async (req, res) => {
+app.get('/api/host/events/pending', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -302,7 +310,7 @@ app.get('/api/admin/events/pending', async (req, res) => {
   res.json(result);
 });
 
-app.post('/api/admin/events/:id/status', async (req, res) => {
+app.post('/api/host/events/:id/status', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -312,7 +320,7 @@ app.post('/api/admin/events/:id/status', async (req, res) => {
   res.json(result);
 });
 
-app.delete('/api/admin/events/:id', async (req, res) => {
+app.delete('/api/host/events/:id', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -321,7 +329,7 @@ app.delete('/api/admin/events/:id', async (req, res) => {
   res.json(result);
 });
 
-app.get('/api/admin/events', async (req, res) => {
+app.get('/api/host/events', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -331,7 +339,7 @@ app.get('/api/admin/events', async (req, res) => {
   res.json(result);
 });
 
-app.post('/api/admin/events/:id/featured', async (req, res) => {
+app.post('/api/host/events/:id/featured', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -341,7 +349,7 @@ app.post('/api/admin/events/:id/featured', async (req, res) => {
   res.json(result);
 });
 
-app.post('/api/admin/events/:id/publish', async (req, res) => {
+app.post('/api/host/events/:id/publish', async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) {
     return res.status(401).json({ error: 'User ID required' });
@@ -351,9 +359,111 @@ app.post('/api/admin/events/:id/publish', async (req, res) => {
   res.json(result);
 });
 
+// ==================== REGISTRATION FORM ENDPOINTS ====================
+
+app.get('/api/events/:id/registration-form', async (req, res) => {
+  try {
+    const questions = await models.getRegistrationFormQuestions(req.params.id);
+    res.json({ questions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/events/:id/registration-form', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+
+  try {
+    const { questions } = req.body;
+    console.log('Received registration form request for event:', req.params.id);
+    console.log('Questions count:', questions?.length || 0);
+    console.log('Questions:', JSON.stringify(questions, null, 2));
+    
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({ error: 'Questions array is required' });
+    }
+    
+    const result = await models.createRegistrationFormQuestions(req.params.id, questions);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating registration form:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/events/:id/registration-form', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+
+  try {
+    const result = await models.deleteRegistrationFormQuestions(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/events/:id/register-with-form', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+
+  try {
+    const { formResponses } = req.body;
+    const result = await models.registerEventWithForm(req.params.id, userId, formResponses, 'FORM');
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/host/events/:id/registrations', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+
+  try {
+    const registrations = await models.getEventRegistrationsWithResponses(req.params.id);
+    res.json({ registrations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/host/registrations/:id/status', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+
+  try {
+    const { status } = req.body;
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const result = await models.updateRegistrationStatus(req.params.id, status);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Error handling middleware (must be after all routes)
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, () => {

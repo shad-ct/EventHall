@@ -95,27 +95,21 @@ CREATE TABLE IF NOT EXISTS events (
   INDEX idx_district (district)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Event Categories association (for primary category)
-CREATE TABLE IF NOT EXISTS event_primary_category (
-  event_id VARCHAR(255) PRIMARY KEY,
-  category_id VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
-  FOREIGN KEY (category_id) REFERENCES event_categories(id) ON DELETE RESTRICT,
-  INDEX idx_category_id (category_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Event Additional Categories association (many-to-many)
-CREATE TABLE IF NOT EXISTS event_additional_categories (
+-- Event Categories association (primary and secondary)
+CREATE TABLE IF NOT EXISTS event_category_links (
   id INT AUTO_INCREMENT PRIMARY KEY,
   event_id VARCHAR(255) NOT NULL,
   category_id VARCHAR(255) NOT NULL,
+  is_primary BOOLEAN DEFAULT FALSE,
+  primary_event_id VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN is_primary THEN event_id END) STORED,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
   FOREIGN KEY (category_id) REFERENCES event_categories(id) ON DELETE RESTRICT,
   UNIQUE KEY unique_event_category (event_id, category_id),
+  UNIQUE KEY unique_primary_category (primary_event_id),
   INDEX idx_event_id (event_id),
-  INDEX idx_category_id (category_id)
+  INDEX idx_category_id (category_id),
+  INDEX idx_is_primary (is_primary)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Event Likes table
@@ -139,12 +133,14 @@ CREATE TABLE IF NOT EXISTS event_registrations (
   id VARCHAR(255) PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   event_id VARCHAR(255) NOT NULL,
+  registration_type ENUM('EXTERNAL', 'FORM') DEFAULT 'EXTERNAL',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
   UNIQUE KEY unique_user_event_registration (user_id, event_id),
   INDEX idx_user_id (user_id),
-  INDEX idx_event_id (event_id)
+  INDEX idx_event_id (event_id),
+  INDEX idx_registration_type (registration_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Admin Applications table
@@ -161,6 +157,61 @@ CREATE TABLE IF NOT EXISTS admin_applications (
   INDEX idx_status (status),
   INDEX idx_user_id (user_id),
   INDEX idx_reviewed_by (reviewed_by_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Event Assets table (brochures, posters, social links)
+CREATE TABLE IF NOT EXISTS event_assets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id VARCHAR(255) NOT NULL,
+  asset_type ENUM('BROCHURE', 'POSTER', 'SOCIAL') NOT NULL,
+  name VARCHAR(500),
+  url VARCHAR(1000) NOT NULL,
+  label VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  INDEX idx_event_id (event_id),
+  INDEX idx_asset_type (asset_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Registration Form Questions table
+CREATE TABLE IF NOT EXISTS registration_form_questions (
+  id VARCHAR(255) PRIMARY KEY,
+  event_id VARCHAR(255) NOT NULL,
+  question_category VARCHAR(100) NOT NULL,
+  question_key VARCHAR(255) NOT NULL,
+  question_text VARCHAR(500) NOT NULL,
+  question_type ENUM('text', 'email', 'dropdown', 'textarea', 'url', 'yes/no', 'multi-select') DEFAULT 'text',
+  options JSON,
+  is_required BOOLEAN DEFAULT FALSE,
+  display_order INT DEFAULT 0,
+  is_custom BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_event_question (event_id, question_key),
+  INDEX idx_event_id (event_id),
+  INDEX idx_question_category (question_category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Registration Form Responses table
+CREATE TABLE IF NOT EXISTS registration_form_responses (
+  id VARCHAR(255) PRIMARY KEY,
+  registration_id VARCHAR(255) NOT NULL,
+  event_id VARCHAR(255) NOT NULL,
+  user_id VARCHAR(255) NOT NULL,
+  question_id VARCHAR(255) NOT NULL,
+  answer LONGTEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (registration_id) REFERENCES event_registrations(id) ON DELETE CASCADE,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (question_id) REFERENCES registration_form_questions(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_registration_question (registration_id, question_id),
+  INDEX idx_registration_id (registration_id),
+  INDEX idx_event_id (event_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_question_id (question_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert default categories

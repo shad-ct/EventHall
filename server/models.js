@@ -165,18 +165,17 @@ export const getEventsByCategories = async (categoryIds) => {
     const placeholders = categoryIds.map(() => '?').join(',');
     const [events] = await connection.query(
       `SELECT DISTINCT e.* FROM events e 
-       LEFT JOIN event_primary_category epc ON e.id = epc.event_id 
-       LEFT JOIN event_additional_categories eac ON e.id = eac.event_id 
-       WHERE e.status = "PUBLISHED" AND (epc.category_id IN (${placeholders}) OR eac.category_id IN (${placeholders}))
+       LEFT JOIN event_category_links ecl ON e.id = ecl.event_id 
+       WHERE e.status = "PUBLISHED" AND ecl.category_id IN (${placeholders})
        ORDER BY e.date ASC`,
-      [...categoryIds, ...categoryIds]
+      [...categoryIds]
     );
 
     const eventsByCategory = {};
     for (const event of events) {
       const formattedEvent = await formatEventData(event, connection);
       const [primaryCat] = await connection.query(
-        'SELECT category_id FROM event_primary_category WHERE event_id = ?',
+        'SELECT category_id FROM event_category_links WHERE event_id = ? AND is_primary = TRUE LIMIT 1',
         [event.id]
       );
 
@@ -233,9 +232,9 @@ export const createEvent = async (eventData, userId) => {
       `INSERT INTO events (
         id, title, description, date, time, location, district, google_maps_link,
         entry_fee, is_free, prize_details, contact_email, contact_phone,
-        external_registration_link, how_to_register_link, instagram_url, facebook_url,
+        external_registration_link, registration_method, how_to_register_link, instagram_url, facebook_url,
         youtube_url, banner_url, status, created_by_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         eventData.title,
@@ -251,6 +250,7 @@ export const createEvent = async (eventData, userId) => {
         eventData.contactEmail,
         eventData.contactPhone,
         eventData.externalRegistrationLink || null,
+        eventData.registrationMethod || 'EXTERNAL',
         eventData.howToRegisterLink || null,
         eventData.instagramUrl || null,
         eventData.facebookUrl || null,
@@ -261,22 +261,53 @@ export const createEvent = async (eventData, userId) => {
       ]
     );
 
-    // Insert primary category
+    // Insert category links
     if (eventData.primaryCategory?.id) {
       await connection.query(
-        'INSERT INTO event_primary_category (event_id, category_id) VALUES (?, ?)',
+        'INSERT INTO event_category_links (event_id, category_id, is_primary) VALUES (?, ?, TRUE)',
         [eventId, eventData.primaryCategory.id]
       );
     }
 
-    // Insert additional categories
     if (eventData.additionalCategories && eventData.additionalCategories.length > 0) {
       for (const cat of eventData.additionalCategories) {
         await connection.query(
-          'INSERT INTO event_additional_categories (event_id, category_id) VALUES (?, ?)',
+          'INSERT INTO event_category_links (event_id, category_id, is_primary) VALUES (?, ?, FALSE)',
           [eventId, cat.id]
         );
       }
+    }
+
+    // Insert assets (brochures, posters, socials) if provided
+    try {
+      if (eventData.brochureFiles && eventData.brochureFiles.length > 0) {
+        for (const file of eventData.brochureFiles) {
+          await connection.query(
+            'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+            [eventId, 'BROCHURE', file.name || null, file.url, null]
+          );
+        }
+      }
+
+      if (eventData.posterImages && eventData.posterImages.length > 0) {
+        for (const file of eventData.posterImages) {
+          await connection.query(
+            'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+            [eventId, 'POSTER', file.name || null, file.url, null]
+          );
+        }
+      }
+
+      if (eventData.socialLinks && eventData.socialLinks.length > 0) {
+        for (const link of eventData.socialLinks) {
+          await connection.query(
+            'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+            [eventId, 'SOCIAL', null, link.url, link.label || null]
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('event_assets table not found, skipping asset insertion');
     }
 
     return {
@@ -307,12 +338,12 @@ export const updateEvent = async (eventId, eventData, userId) => {
       throw new Error('Unauthorized - You can only edit your own events');
     }
 
-    const allowedFields = ['title', 'description', 'date', 'time', 'location', 'district', 'google_maps_link', 'entry_fee', 'is_free', 'prize_details', 'contact_email', 'contact_phone', 'external_registration_link', 'how_to_register_link', 'instagram_url', 'facebook_url', 'youtube_url', 'banner_url'];
+    const allowedFields = ['title', 'description', 'date', 'time', 'location', 'district', 'google_maps_link', 'entry_fee', 'is_free', 'prize_details', 'contact_email', 'contact_phone', 'external_registration_link', 'registration_method', 'how_to_register_link', 'instagram_url', 'facebook_url', 'youtube_url', 'banner_url'];
     const fields = [];
     const values = [];
 
     Object.keys(eventData).forEach((key) => {
-      const dbKey = key === 'googleMapsLink' ? 'google_maps_link' : key === 'isFree' ? 'is_free' : key === 'entryFee' ? 'entry_fee' : key === 'prizeDetails' ? 'prize_details' : key === 'contactEmail' ? 'contact_email' : key === 'contactPhone' ? 'contact_phone' : key === 'externalRegistrationLink' ? 'external_registration_link' : key === 'howToRegisterLink' ? 'how_to_register_link' : key === 'instagramUrl' ? 'instagram_url' : key === 'facebookUrl' ? 'facebook_url' : key === 'youtubeUrl' ? 'youtube_url' : key === 'bannerUrl' ? 'banner_url' : key;
+      const dbKey = key === 'googleMapsLink' ? 'google_maps_link' : key === 'isFree' ? 'is_free' : key === 'entryFee' ? 'entry_fee' : key === 'prizeDetails' ? 'prize_details' : key === 'contactEmail' ? 'contact_email' : key === 'contactPhone' ? 'contact_phone' : key === 'externalRegistrationLink' ? 'external_registration_link' : key === 'registrationMethod' ? 'registration_method' : key === 'howToRegisterLink' ? 'how_to_register_link' : key === 'instagramUrl' ? 'instagram_url' : key === 'facebookUrl' ? 'facebook_url' : key === 'youtubeUrl' ? 'youtube_url' : key === 'bannerUrl' ? 'banner_url' : key;
       if (allowedFields.includes(dbKey)) {
         fields.push(`${dbKey} = ?`);
         values.push(eventData[key]);
@@ -321,7 +352,80 @@ export const updateEvent = async (eventId, eventData, userId) => {
 
     if (fields.length > 0) {
       values.push(eventId);
+      console.log('UPDATE SQL:', `UPDATE events SET ${fields.join(', ')} WHERE id = ?`);
+      console.log('UPDATE VALUES:', values);
       await connection.query(`UPDATE events SET ${fields.join(', ')} WHERE id = ?`, values);
+    }
+
+    // Update categories if provided
+    if (eventData.primaryCategory?.id) {
+      await connection.query('DELETE FROM event_category_links WHERE event_id = ? AND is_primary = TRUE', [eventId]);
+      await connection.query(
+        'INSERT INTO event_category_links (event_id, category_id, is_primary) VALUES (?, ?, TRUE)',
+        [eventId, eventData.primaryCategory.id]
+      );
+    }
+
+    if (eventData.additionalCategories !== undefined) {
+      await connection.query('DELETE FROM event_category_links WHERE event_id = ? AND is_primary = FALSE', [eventId]);
+      if (eventData.additionalCategories.length > 0) {
+        for (const cat of eventData.additionalCategories) {
+          await connection.query(
+            'INSERT INTO event_category_links (event_id, category_id, is_primary) VALUES (?, ?, FALSE)',
+            [eventId, cat.id]
+          );
+        }
+      }
+    }
+
+    // Update assets if provided (brochures/posters/socials)
+    try {
+      if (eventData.brochureFiles !== undefined) {
+        await connection.query(
+          'DELETE FROM event_assets WHERE event_id = ? AND asset_type = ?',
+          [eventId, 'BROCHURE']
+        );
+        if (eventData.brochureFiles.length > 0) {
+          for (const file of eventData.brochureFiles) {
+            await connection.query(
+              'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+              [eventId, 'BROCHURE', file.name || null, file.url, null]
+            );
+          }
+        }
+      }
+
+      if (eventData.posterImages !== undefined) {
+        await connection.query(
+          'DELETE FROM event_assets WHERE event_id = ? AND asset_type = ?',
+          [eventId, 'POSTER']
+        );
+        if (eventData.posterImages.length > 0) {
+          for (const file of eventData.posterImages) {
+            await connection.query(
+              'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+              [eventId, 'POSTER', file.name || null, file.url, null]
+            );
+          }
+        }
+      }
+
+      if (eventData.socialLinks !== undefined) {
+        await connection.query(
+          'DELETE FROM event_assets WHERE event_id = ? AND asset_type = ?',
+          [eventId, 'SOCIAL']
+        );
+        if (eventData.socialLinks.length > 0) {
+          for (const link of eventData.socialLinks) {
+            await connection.query(
+              'INSERT INTO event_assets (event_id, asset_type, name, url, label) VALUES (?, ?, ?, ?, ?)',
+              [eventId, 'SOCIAL', null, link.url, link.label || null]
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('event_assets table not found, skipping asset update');
     }
 
     return { success: true, message: 'Event updated successfully' };
@@ -389,6 +493,27 @@ export const registerEvent = async (eventId, userId) => {
     );
 
     return { success: true, message: 'Registered successfully' };
+  } finally {
+    connection.release();
+  }
+};
+
+export const unregisterEvent = async (eventId, userId) => {
+  const connection = await pool.getConnection();
+  try {
+    const registrationId = `${userId}_${eventId}`;
+
+    const [result] = await connection.query(
+      'DELETE FROM event_registrations WHERE id = ?',
+      [registrationId]
+    );
+
+    const wasRegistered = result?.affectedRows > 0;
+
+    return {
+      success: true,
+      message: wasRegistered ? 'Unregistered successfully' : 'You were not registered for this event',
+    };
   } finally {
     connection.release();
   }
@@ -751,13 +876,18 @@ export const getFeaturedEvents = async () => {
 async function formatEventData(dbEvent, connection) {
   // Get primary category
   const [primaryCat] = await connection.query(
-    'SELECT ec.* FROM event_categories ec JOIN event_primary_category epc ON ec.id = epc.category_id WHERE epc.event_id = ?',
+    `SELECT ec.* FROM event_categories ec 
+     JOIN event_category_links ecl ON ec.id = ecl.category_id 
+     WHERE ecl.event_id = ? AND ecl.is_primary = TRUE 
+     LIMIT 1`,
     [dbEvent.id]
   );
 
   // Get additional categories
   const [additionalCats] = await connection.query(
-    'SELECT ec.* FROM event_categories ec JOIN event_additional_categories eac ON ec.id = eac.category_id WHERE eac.event_id = ?',
+    `SELECT ec.* FROM event_categories ec 
+     JOIN event_category_links ecl ON ec.id = ecl.category_id 
+     WHERE ecl.event_id = ? AND ecl.is_primary = FALSE`,
     [dbEvent.id]
   );
 
@@ -779,6 +909,31 @@ async function formatEventData(dbEvent, connection) {
     [dbEvent.created_by_id]
   );
 
+  // Get assets (brochures, posters, socials) with graceful fallback
+  let brochures = [];
+  let posters = [];
+  let socialLinks = [];
+  try {
+    const [assets] = await connection.query(
+      'SELECT asset_type, name, url, label FROM event_assets WHERE event_id = ?',
+      [dbEvent.id]
+    );
+
+    brochures = assets
+      .filter(a => a.asset_type === 'BROCHURE')
+      .map(a => ({ name: a.name, url: a.url }));
+
+    posters = assets
+      .filter(a => a.asset_type === 'POSTER')
+      .map(a => ({ name: a.name, url: a.url }));
+
+    socialLinks = assets
+      .filter(a => a.asset_type === 'SOCIAL')
+      .map(a => ({ url: a.url, label: a.label }));
+  } catch (err) {
+    // Table may not exist yet; skip assets
+  }
+
   return {
     id: dbEvent.id,
     title: dbEvent.title,
@@ -796,6 +951,7 @@ async function formatEventData(dbEvent, connection) {
     contactEmail: dbEvent.contact_email,
     contactPhone: dbEvent.contact_phone,
     externalRegistrationLink: dbEvent.external_registration_link,
+    registrationMethod: dbEvent.registration_method,
     howToRegisterLink: dbEvent.how_to_register_link,
     instagramUrl: dbEvent.instagram_url,
     facebookUrl: dbEvent.facebook_url,
@@ -808,9 +964,240 @@ async function formatEventData(dbEvent, connection) {
     createdBy: creator[0] ? { id: creator[0].id, fullName: creator[0].full_name, email: creator[0].email } : null,
     createdAt: dbEvent.created_at,
     updatedAt: dbEvent.updated_at,
+    brochureFiles: brochures,
+    posterImages: posters,
+    socialLinks: socialLinks,
     _count: {
       likes: likeCount[0].count,
       registrations: registrationCount[0].count,
     },
   };
 }
+
+// Registration Form Methods
+export const createRegistrationFormQuestions = async (eventId, questions) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    // First, delete existing questions for this event
+    await connection.query(
+      'DELETE FROM registration_form_questions WHERE event_id = ?',
+      [eventId]
+    );
+    
+    // Then insert new questions
+    for (const question of questions) {
+      const questionId = crypto.randomUUID();
+      await connection.query(
+        `INSERT INTO registration_form_questions 
+         (id, event_id, question_category, question_key, question_text, question_type, options, is_required, display_order, is_custom) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          questionId,
+          eventId,
+          question.questionCategory || 'Custom',
+          question.questionKey || `custom_${questionId}`,
+          question.questionText,
+          question.questionType,
+          question.options ? JSON.stringify(question.options) : null,
+          question.isRequired !== undefined ? question.isRequired : false,
+          question.displayOrder !== undefined ? question.displayOrder : 0,
+          question.isCustom !== undefined ? question.isCustom : false
+        ]
+      );
+    }
+    
+    await connection.commit();
+    return { success: true };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const getRegistrationFormQuestions = async (eventId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [questions] = await connection.query(
+      `SELECT * FROM registration_form_questions WHERE event_id = ? ORDER BY display_order ASC`,
+      [eventId]
+    );
+    
+    return questions.map(q => ({
+      id: q.id,
+      eventId: q.event_id,
+      questionCategory: q.question_category,
+      questionKey: q.question_key,
+      questionText: q.question_text,
+      questionType: q.question_type,
+      options: q.options ? JSON.parse(q.options) : null,
+      isRequired: q.is_required,
+      displayOrder: q.display_order,
+      isCustom: q.is_custom
+    }));
+  } finally {
+    connection.release();
+  }
+};
+
+export const registerEventWithForm = async (eventId, userId, formResponses, registrationType = 'FORM') => {
+  const connection = await pool.getConnection();
+  try {
+    const registrationId = `${userId}_${eventId}`;
+
+    // Check if already registered
+    const [registrations] = await connection.query(
+      'SELECT * FROM event_registrations WHERE id = ?',
+      [registrationId]
+    );
+
+    if (registrations.length > 0) {
+      return { success: false, message: 'Already registered' };
+    }
+
+    // Start transaction
+    await connection.beginTransaction();
+
+    // Create registration
+    await connection.query(
+      'INSERT INTO event_registrations (id, user_id, event_id, registration_type) VALUES (?, ?, ?, ?)',
+      [registrationId, userId, eventId, registrationType]
+    );
+
+    // Save form responses if provided
+    if (formResponses && formResponses.length > 0) {
+      console.log('Saving form responses:', JSON.stringify(formResponses, null, 2));
+      
+      // Get all question IDs for this event to validate
+      const [existingQuestions] = await connection.query(
+        'SELECT id FROM registration_form_questions WHERE event_id = ?',
+        [eventId]
+      );
+      const validQuestionIds = new Set(existingQuestions.map(q => q.id));
+      console.log('Valid question IDs:', Array.from(validQuestionIds));
+      
+      for (const response of formResponses) {
+        if (!validQuestionIds.has(response.questionId)) {
+          console.error(`Invalid question ID: ${response.questionId}`);
+          throw new Error(`Question ID ${response.questionId} does not exist for this event`);
+        }
+        
+        const responseId = crypto.randomUUID();
+        await connection.query(
+          `INSERT INTO registration_form_responses 
+           (id, registration_id, event_id, user_id, question_id, answer) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            responseId,
+            registrationId,
+            eventId,
+            userId,
+            response.questionId,
+            response.answer
+          ]
+        );
+      }
+    }
+
+    await connection.commit();
+    return { success: true, message: 'Registered successfully with form' };
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error in registerEventWithForm:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const getRegistrationFormResponses = async (registrationId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [responses] = await connection.query(
+      `SELECT rfr.*, rfq.question_text, rfq.question_type 
+       FROM registration_form_responses rfr
+       LEFT JOIN registration_form_questions rfq ON rfr.question_id = rfq.id
+       WHERE rfr.registration_id = ?`,
+      [registrationId]
+    );
+
+    return responses.map(r => ({
+      id: r.id,
+      registrationId: r.registration_id,
+      eventId: r.event_id,
+      userId: r.user_id,
+      questionId: r.question_id,
+      questionText: r.question_text || 'Unknown Question',
+      questionType: r.question_type,
+      answer: r.answer
+    }));
+  } finally {
+    connection.release();
+  }
+};
+
+export const getEventRegistrationsWithResponses = async (eventId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [registrations] = await connection.query(
+      `SELECT er.*, u.full_name, u.email 
+       FROM event_registrations er
+       JOIN users u ON er.user_id = u.id
+       WHERE er.event_id = ?`,
+      [eventId]
+    );
+
+    const registrationsWithResponses = await Promise.all(
+      registrations.map(async (reg) => {
+        const responses = await getRegistrationFormResponses(reg.id);
+        return {
+          id: reg.id,
+          userId: reg.user_id,
+          eventId: reg.event_id,
+          registrationType: reg.registration_type,
+          status: reg.status,
+          userName: reg.full_name,
+          userEmail: reg.email,
+          createdAt: reg.created_at,
+          registeredAt: reg.created_at,
+          formResponses: responses
+        };
+      })
+    );
+
+    return registrationsWithResponses;
+  } finally {
+    connection.release();
+  }
+};
+
+export const updateRegistrationStatus = async (registrationId, status) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.query(
+      'UPDATE event_registrations SET status = ? WHERE id = ?',
+      [status, registrationId]
+    );
+    return { success: true, message: 'Registration status updated' };
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const deleteRegistrationFormQuestions = async (eventId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.query(
+      'DELETE FROM registration_form_questions WHERE event_id = ?',
+      [eventId]
+    );
+    return { success: true };
+  } finally {
+    connection.release();
+  }
+};

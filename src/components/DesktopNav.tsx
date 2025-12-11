@@ -13,7 +13,7 @@ export const DesktopNav: React.FC = () => {
   const navItems = [
     { label: 'Home', path: '/home' },
     { label: 'Search', path: '/search' },
-    ...(isAdmin ? [{ label: 'Manage', path: '/admin/events' }] : []),
+    ...(isAdmin ? [{ label: 'Host', path: '/host/events' }] : []),
     { label: 'Profile', path: '/profile' },
   ];
 

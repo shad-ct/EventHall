@@ -92,6 +92,14 @@ export const registerEvent = async (eventId: string) => {
   return apiClient.registerEvent(eventId, userId);
 };
 
+export const unregisterEvent = async (eventId: string) => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return apiClient.unregisterEvent(eventId, userId);
+};
+
 export const getRegisteredEvents = async () => {
   const userId = getCurrentUserId();
   if (!userId) {
@@ -199,6 +207,43 @@ export const toggleEventPublish = async (eventId: string, shouldPublish: boolean
 
 export const getFeaturedEvents = async () => {
   return apiClient.getFeaturedEvents();
+};
+
+// Registration Form Functions
+export const createRegistrationForm = async (eventId: string, questions: any[]) => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return apiClient.createRegistrationForm(eventId, questions, userId);
+};
+
+export const getRegistrationForm = async (eventId: string) => {
+  return apiClient.getRegistrationForm(eventId);
+};
+
+export const registerEventWithForm = async (eventId: string, formResponses: any[]) => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return apiClient.registerEventWithForm(eventId, formResponses, userId);
+};
+
+export const getEventRegistrations = async (eventId: string) => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return apiClient.getEventRegistrations(eventId, userId);
+};
+
+export const updateRegistrationStatus = async (registrationId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return apiClient.updateRegistrationStatus(registrationId, status, userId);
 };
 
 export const getAllUsers = async (_role?: string) => {

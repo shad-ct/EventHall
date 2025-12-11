@@ -59,13 +59,13 @@ INSERT INTO events (id, title, description, date, time, location, district, goog
 ON DUPLICATE KEY UPDATE id = id;
 
 -- Link primary categories for all events
-INSERT INTO event_primary_category (event_id, category_id) VALUES
-('hack-001', '1'), ('hack-002', '1'), ('hack-003', '1'), ('hack-004', '1'), ('hack-005', '1'),
-('ws-001', '2'), ('ws-002', '2'), ('ws-003', '2'), ('ws-004', '2'), ('ws-005', '2'),
-('conf-001', '3'), ('conf-002', '3'), ('conf-003', '3'), ('conf-004', '3'), ('conf-005', '3'),
-('sem-001', '4'), ('sem-002', '4'), ('sem-003', '4'), ('sem-004', '4'), ('sem-005', '4'),
-('sport-001', '5'), ('sport-002', '5'), ('sport-003', '5'), ('sport-004', '5'), ('sport-005', '5'),
-('cult-001', '6'), ('cult-002', '6'), ('cult-003', '6'), ('cult-004', '6'), ('cult-005', '6'),
-('music-001', '7'), ('music-002', '7'), ('music-003', '7'), ('music-004', '7'), ('music-005', '7'),
-('game-001', '8'), ('game-002', '8'), ('game-003', '8'), ('game-004', '8'), ('game-005', '8')
+INSERT INTO event_category_links (event_id, category_id, is_primary) VALUES
+('hack-001', '1', TRUE), ('hack-002', '1', TRUE), ('hack-003', '1', TRUE), ('hack-004', '1', TRUE), ('hack-005', '1', TRUE),
+('ws-001', '2', TRUE), ('ws-002', '2', TRUE), ('ws-003', '2', TRUE), ('ws-004', '2', TRUE), ('ws-005', '2', TRUE),
+('conf-001', '3', TRUE), ('conf-002', '3', TRUE), ('conf-003', '3', TRUE), ('conf-004', '3', TRUE), ('conf-005', '3', TRUE),
+('sem-001', '4', TRUE), ('sem-002', '4', TRUE), ('sem-003', '4', TRUE), ('sem-004', '4', TRUE), ('sem-005', '4', TRUE),
+('sport-001', '5', TRUE), ('sport-002', '5', TRUE), ('sport-003', '5', TRUE), ('sport-004', '5', TRUE), ('sport-005', '5', TRUE),
+('cult-001', '6', TRUE), ('cult-002', '6', TRUE), ('cult-003', '6', TRUE), ('cult-004', '6', TRUE), ('cult-005', '6', TRUE),
+('music-001', '7', TRUE), ('music-002', '7', TRUE), ('music-003', '7', TRUE), ('music-004', '7', TRUE), ('music-005', '7', TRUE),
+('game-001', '8', TRUE), ('game-002', '8', TRUE), ('game-003', '8', TRUE), ('game-004', '8', TRUE), ('game-005', '8', TRUE)
 ON DUPLICATE KEY UPDATE event_id = event_id;

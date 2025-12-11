@@ -119,7 +119,7 @@ export const UltimateAdminPage: React.FC = () => {
   };
 
   const handleEditEvent = (id: string) => {
-    navigate(`/admin/events/edit/${id}`);
+    navigate(`/host/events/edit/${id}`);
   };
 
   const handleToggleFeatured = async (id: string, currentlyFeatured: boolean) => {
@@ -204,7 +204,7 @@ export const UltimateAdminPage: React.FC = () => {
                 activeTab === 'adminRequests' ? 'text-blue-600' : 'text-gray-600'
               }`}
             >
-              Admin Requests ({applications.length})
+              Event Host Requests ({applications.length})
               {activeTab === 'adminRequests' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
               )}
@@ -255,7 +255,7 @@ export const UltimateAdminPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Admin Requests Tab */}
+            {/* Event Host Requests Tab */}
             {activeTab === 'adminRequests' && (
               <div>
                 {/* Status Filter */}
@@ -279,7 +279,7 @@ export const UltimateAdminPage: React.FC = () => {
                   {applications.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-lg">
                       <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No admin applications found</p>
+                      <p className="text-gray-600">No event host applications found</p>
                     </div>
                   ) : (
                     applications.map((app) => (

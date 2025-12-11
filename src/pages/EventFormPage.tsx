@@ -4,8 +4,9 @@ import { eventAPI } from '../lib/api';
 import { getCategories } from '../lib/firestore';
 import { uploadFile } from '../lib/file-storage';
 import { MapPickerModal } from '../components/MapPickerModal';
+import { RegistrationFormBuilder, FormQuestion } from '../components/RegistrationFormBuilder';
 import { EventCategory } from '../types';
-import { ArrowLeft, X, MapPin, Download, Trash2 } from 'lucide-react';
+import { ArrowLeft, X, MapPin, Download, Trash2, Link as LinkIcon } from 'lucide-react';
 
 export const EventFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,8 +28,6 @@ export const EventFormPage: React.FC = () => {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [customCategoryTags, setCustomCategoryTags] = useState<string[]>([]);
   const [categoryTagInput, setCategoryTagInput] = useState('');
-  const [customTags, setCustomTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
   const [entryFee, setEntryFee] = useState('');
   const [isFree, setIsFree] = useState(false);
   const [prizeDetails, setPrizeDetails] = useState('');
@@ -36,9 +35,8 @@ export const EventFormPage: React.FC = () => {
   const [contactPhone, setContactPhone] = useState('');
   const [externalRegistrationLink, setExternalRegistrationLink] = useState('');
   const [howToRegisterLink, setHowToRegisterLink] = useState('');
-  const [instagramUrl, setInstagramUrl] = useState('');
-  const [facebookUrl, setFacebookUrl] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [registrationMethod, setRegistrationMethod] = useState<'EXTERNAL' | 'FORM'>('EXTERNAL');
+  const [formQuestions, setFormQuestions] = useState<FormQuestion[]>([]);
   const [bannerUrl, setBannerUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -46,6 +44,8 @@ export const EventFormPage: React.FC = () => {
   const [posterImages, setPosterImages] = useState<{ name: string; url: string }[]>([]);
   const [uploadingBrochure, setUploadingBrochure] = useState(false);
   const [uploadingPoster, setUploadingPoster] = useState(false);
+  const [socialLinks, setSocialLinks] = useState<{ url: string; label?: string }[]>([]);
+  const [socialLinkInput, setSocialLinkInput] = useState('');
 
   const todayInputValue = useMemo(() => {
     const today = new Date();
@@ -70,7 +70,7 @@ export const EventFormPage: React.FC = () => {
         if (isEdit && id) {
           const eventData = await eventAPI.getEvent(id);
           const event = eventData.event;
-          
+
           setTitle(event.title);
           setDescription(event.description);
           setDate(new Date(event.date).toISOString().split('T')[0]);
@@ -85,11 +85,23 @@ export const EventFormPage: React.FC = () => {
           setContactEmail(event.contactEmail);
           setContactPhone(event.contactPhone);
           setExternalRegistrationLink(event.externalRegistrationLink || '');
+          setRegistrationMethod(event.registrationMethod || 'EXTERNAL');
           setHowToRegisterLink(event.howToRegisterLink || '');
-          setInstagramUrl(event.instagramUrl || '');
-          setFacebookUrl(event.facebookUrl || '');
-          setYoutubeUrl(event.youtubeUrl || '');
           setBannerUrl(event.bannerUrl || '');
+          setBrochureFiles(event.brochureFiles || []);
+          setPosterImages(event.posterImages || []);
+
+          setSocialLinks(event.socialLinks || []);
+          
+          // Load existing registration form questions if FORM method
+          if (event.registrationMethod === 'FORM') {
+            try {
+              const response = await eventAPI.getRegistrationForm(event.id);
+              setFormQuestions(response.questions || []);
+            } catch (error) {
+              console.error('Failed to load registration form questions:', error);
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -264,22 +276,6 @@ export const EventFormPage: React.FC = () => {
   const removeCustomCategory = (tag: string) => {
     setCustomCategoryTags(customCategoryTags.filter(t => t !== tag));
   };
-
-  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      e.preventDefault();
-      const newTag = tagInput.trim().toLowerCase();
-      if (!customTags.includes(newTag)) {
-        setCustomTags([...customTags, newTag]);
-      }
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setCustomTags(customTags.filter(t => t !== tag));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -362,25 +358,36 @@ export const EventFormPage: React.FC = () => {
       if (customCategoryTags.length > 0) eventData.customCategories = customCategoryTags;
       if (!isFree && entryFee?.trim()) eventData.entryFee = entryFee;
       if (prizeDetails?.trim()) eventData.prizeDetails = prizeDetails;
-      if (externalRegistrationLink?.trim()) eventData.externalRegistrationLink = externalRegistrationLink;
+      if (registrationMethod === 'EXTERNAL' && externalRegistrationLink?.trim()) {
+        eventData.externalRegistrationLink = externalRegistrationLink;
+      }
       if (howToRegisterLink?.trim()) eventData.howToRegisterLink = howToRegisterLink;
-      if (instagramUrl?.trim()) eventData.instagramUrl = instagramUrl;
-      if (facebookUrl?.trim()) eventData.facebookUrl = facebookUrl;
-      if (youtubeUrl?.trim()) eventData.youtubeUrl = youtubeUrl;
+      eventData.registrationMethod = registrationMethod;
       if (bannerUrl?.trim()) eventData.bannerUrl = bannerUrl;
-      if (customTags.length > 0) eventData.customTags = customTags;
       if (brochureFiles.length > 0) eventData.brochureFiles = brochureFiles;
       if (posterImages.length > 0) eventData.posterImages = posterImages;
+      if (socialLinks.length > 0) eventData.socialLinks = socialLinks;
 
+      let createdEventId = id;
       if (isEdit && id) {
         await eventAPI.updateEvent(id, eventData);
       } else {
         const result = await eventAPI.createEvent(eventData);
+        createdEventId = result.event?.id;
         console.log('Event created:', result);
       }
 
+      // Save registration form questions if using form method
+      if (registrationMethod === 'FORM' && formQuestions.length > 0 && createdEventId) {
+        try {
+          await eventAPI.createRegistrationForm(createdEventId, formQuestions);
+        } catch (error) {
+          console.error('Failed to save registration form questions:', error);
+        }
+      }
+
       alert('Event saved successfully!');
-      navigate('/admin/events');
+      navigate('/host/events');
     } catch (error: any) {
       console.error('Failed to save event:', error);
       setError(error.response?.data?.error || 'Failed to save event');
@@ -416,7 +423,7 @@ export const EventFormPage: React.FC = () => {
             {/* Basic Info */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Event Title *
@@ -535,13 +542,13 @@ export const EventFormPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Event Banner Image
                 </label>
-                
+
                 {/* Image Preview */}
                 {bannerUrl && (
                   <div className="mb-3 relative">
-                    <img 
-                      src={bannerUrl} 
-                      alt="Banner preview" 
+                    <img
+                      src={bannerUrl}
+                      alt="Banner preview"
                       className="w-full h-48 object-cover rounded-lg border border-gray-300"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
@@ -560,11 +567,10 @@ export const EventFormPage: React.FC = () => {
                 {/* Upload Button */}
                 <div className="flex gap-2 mb-2">
                   <label className="flex-1 cursor-pointer">
-                    <div className={`w-full px-4 py-2 border-2 border-dashed rounded-lg text-center transition-colors ${
-                      uploadingImage 
-                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                    <div className={`w-full px-4 py-2 border-2 border-dashed rounded-lg text-center transition-colors ${uploadingImage
+                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
                         : 'border-blue-300 hover:border-blue-500 bg-blue-50 hover:bg-blue-100'
-                    }`}>
+                      }`}>
                       {uploadingImage ? (
                         <span className="text-gray-600">Uploading...</span>
                       ) : (
@@ -598,7 +604,7 @@ export const EventFormPage: React.FC = () => {
             {/* Categories */}
             <div className="space-y-4 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900">Event Categories *</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select from Predefined Categories
@@ -609,11 +615,10 @@ export const EventFormPage: React.FC = () => {
                       key={category.id}
                       type="button"
                       onClick={() => toggleAdditionalCategory(category.id)}
-                      className={`py-1 px-2 rounded-lg border-2 text-xs transition-colors ${
-                        selectedCategoryIds.includes(category.id)
+                      className={`py-1 px-2 rounded-lg border-2 text-xs transition-colors ${selectedCategoryIds.includes(category.id)
                           ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                      }`}
+                        }`}
                     >
                       {category.name}
                     </button>
@@ -643,7 +648,7 @@ export const EventFormPage: React.FC = () => {
                         {tag}
                         <button
                           type="button"
-                          onClick={() => removeCategoryTag(tag)}
+                          onClick={() => removeCustomCategory(tag)}
                           className="hover:text-indigo-900"
                         >
                           <X className="w-4 h-4" />
@@ -658,7 +663,7 @@ export const EventFormPage: React.FC = () => {
             {/* Entry Fee & Prizes */}
             <div className="space-y-4 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900">Entry Fee & Prizes</h3>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -704,7 +709,7 @@ export const EventFormPage: React.FC = () => {
             {/* Contact Info */}
             <div className="space-y-4 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -741,95 +746,162 @@ export const EventFormPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Registration Links */}
+            {/* Registration Method */}
             <div className="space-y-4 pt-6 border-t">
-              <h3 className="text-lg font-semibold text-gray-900">Registration Links</h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  External Registration Link
-                </label>
-                <input
-                  type="url"
-                  value={externalRegistrationLink}
-                  onChange={(e) => setExternalRegistrationLink(e.target.value)}
-                  placeholder="https://forms.google.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+              <h3 className="text-lg font-semibold text-gray-900">Registration Method</h3>
+              <p className="text-sm text-gray-600">
+                Choose how participants will register for your event
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setRegistrationMethod('EXTERNAL')}
+                  className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                    registrationMethod === 'EXTERNAL'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">External Link</div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Use an external form (Google Forms, Typeform, etc.)
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRegistrationMethod('FORM')}
+                  className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                    registrationMethod === 'FORM'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">Our Platform</div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Use our built-in registration form
+                  </p>
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  How to Register Link
-                </label>
-                <input
-                  type="url"
-                  value={howToRegisterLink}
-                  onChange={(e) => setHowToRegisterLink(e.target.value)}
-                  placeholder="https://example.com/registration-guide"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {registrationMethod === 'EXTERNAL' && (
+                <div className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      External Registration Link
+                    </label>
+                    <input
+                      type="url"
+                      value={externalRegistrationLink}
+                      onChange={(e) => setExternalRegistrationLink(e.target.value)}
+                      placeholder="https://forms.google.com/..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      How to Register Link
+                    </label>
+                    <input
+                      type="url"
+                      value={howToRegisterLink}
+                      onChange={(e) => setHowToRegisterLink(e.target.value)}
+                      placeholder="https://example.com/registration-guide"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    Participants will not be tracked in our system with external links.
+                  </p>
+                </div>
+              )}
+
+              {registrationMethod === 'FORM' && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <RegistrationFormBuilder
+                    questions={formQuestions}
+                    onQuestionsChange={setFormQuestions}
+                  />
+                  <p className="text-xs text-gray-600 mt-4">
+                    Participants who register will appear in your event dashboard with their form responses.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Social Media */}
             <div className="space-y-4 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900">Social Media Links</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Instagram
-                  </label>
-                  <input
-                    type="url"
-                    value={instagramUrl}
-                    onChange={(e) => setInstagramUrl(e.target.value)}
-                    placeholder="https://instagram.com/..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <p className="text-sm text-gray-600">Add any social media links (Instagram, Facebook, LinkedIn, GitHub, YouTube, etc.)</p>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Facebook
-                  </label>
-                  <input
-                    type="url"
-                    value={facebookUrl}
-                    onChange={(e) => setFacebookUrl(e.target.value)}
-                    placeholder="https://facebook.com/..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+              {socialLinks.length > 0 && (
+                <div className="space-y-2">
+                  {socialLinks.map((link, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200"
+                    >
+                      <LinkIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 truncate flex-1">{link.url}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSocialLinks(socialLinks.filter((_, i) => i !== index))}
+                        className="text-red-600 hover:text-red-700 transition-colors flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    YouTube
-                  </label>
-                  <input
-                    type="url"
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    placeholder="https://youtube.com/..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={socialLinkInput}
+                  onChange={(e) => setSocialLinkInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (socialLinkInput.trim() && socialLinkInput.startsWith('http')) {
+                        setSocialLinks([...socialLinks, { url: socialLinkInput.trim() }]);
+                        setSocialLinkInput('');
+                      }
+                    }
+                  }}
+                  placeholder="https://facebook.com/username or any social media link"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (socialLinkInput.trim() && socialLinkInput.startsWith('http')) {
+                      setSocialLinks([...socialLinks, { url: socialLinkInput.trim() }]);
+                      setSocialLinkInput('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Add Link
+                </button>
               </div>
+              <p className="text-xs text-gray-500">Press Enter or click "Add Link" to add. URLs must start with http:// or https://</p>
             </div>
 
             {/* Marketing Materials */}
             <div className="space-y-4 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900">Marketing Materials (Optional)</h3>
               <p className="text-sm text-gray-600">Add brochures and posters to promote your event</p>
-              
+
               {/* Brochures Section */}
               <div className="bg-blue-50 rounded-lg p-4 space-y-3">
                 <label className="block text-sm font-medium text-gray-900">
                   📄 Event Brochures (PDF)
                 </label>
                 <p className="text-xs text-gray-600">Upload PDF brochures or documents about your event</p>
-                
+
                 {brochureFiles.length > 0 && (
                   <div className="space-y-2">
                     {brochureFiles.map((file, index) => (
@@ -852,13 +924,12 @@ export const EventFormPage: React.FC = () => {
                     ))}
                   </div>
                 )}
-                
+
                 <label className="flex items-center justify-center gap-2 cursor-pointer">
-                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${
-                    uploadingBrochure
+                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${uploadingBrochure
                       ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
                       : 'border-blue-300 hover:border-blue-500 bg-white hover:bg-blue-50'
-                  }`}>
+                    }`}>
                     {uploadingBrochure ? (
                       <span className="text-gray-600 text-sm">Uploading PDF...</span>
                     ) : (
@@ -881,7 +952,7 @@ export const EventFormPage: React.FC = () => {
                   🎨 Event Posters (Images)
                 </label>
                 <p className="text-xs text-gray-600">Upload promotional poster images (JPG, PNG)</p>
-                
+
                 {posterImages.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {posterImages.map((file, index) => (
@@ -903,13 +974,12 @@ export const EventFormPage: React.FC = () => {
                     ))}
                   </div>
                 )}
-                
+
                 <label className="flex items-center justify-center gap-2 cursor-pointer">
-                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${
-                    uploadingPoster
+                  <div className={`w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${uploadingPoster
                       ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
                       : 'border-purple-300 hover:border-purple-500 bg-white hover:bg-purple-50'
-                  }`}>
+                    }`}>
                     {uploadingPoster ? (
                       <span className="text-gray-600 text-sm">Uploading poster...</span>
                     ) : (

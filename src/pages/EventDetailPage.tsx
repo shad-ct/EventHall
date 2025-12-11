@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
 import { mockCategories } from '../lib/firestore';
-import { Event } from '../types';
+import { Event, RegistrationFormQuestion } from '../types';
+import { RegistrationFormModal } from '../components/RegistrationFormModal';
 import {
   ArrowLeft,
   MapPin,
@@ -22,6 +23,8 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
+  X,
 } from 'lucide-react';
 
 export const EventDetailPage: React.FC = () => {
@@ -32,6 +35,10 @@ export const EventDetailPage: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
+  const [showFullPoster, setShowFullPoster] = useState(false);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [registrationFormQuestions, setRegistrationFormQuestions] = useState<RegistrationFormQuestion[]>([]);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -45,6 +52,16 @@ export const EventDetailPage: React.FC = () => {
         const interactions = await eventAPI.checkInteractions([id]);
         setIsLiked(interactions.likedEventIds.includes(id));
         setIsRegistered(interactions.registeredEventIds.includes(id));
+
+        // If event uses form method, fetch registration form questions
+        if (data.event?.registrationMethod === 'FORM') {
+          try {
+            const formData = await eventAPI.getRegistrationForm(id);
+            setRegistrationFormQuestions(formData.questions || []);
+          } catch (error) {
+            console.error('Failed to fetch registration form:', error);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch event:', error);
       } finally {
@@ -69,21 +86,73 @@ export const EventDetailPage: React.FC = () => {
     }
   };
 
+  const updateRegistrationCount = (delta: number) => {
+    setEvent((prev) => {
+      if (!prev) return prev;
+      const counts = prev._count || { likes: 0, registrations: 0 };
+      return {
+        ...prev,
+        _count: {
+          ...counts,
+          registrations: Math.max(0, counts.registrations + delta),
+        },
+      };
+    });
+  };
+
+  const handleRegistrationSubmit = async (responses: any[]) => {
+    if (!id) return;
+
+    setRegistrationLoading(true);
+    try {
+      await eventAPI.registerEventWithForm(id, responses);
+      setIsRegistered(true);
+      updateRegistrationCount(1);
+      setShowRegistrationForm(false);
+      alert('Successfully registered for the event!');
+    } catch (error) {
+      console.error('Failed to register:', error);
+      alert('Failed to register. Please try again.');
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
   const handleRegister = async () => {
     if (!id) return;
     try {
-      if (event?.externalRegistrationLink) {
-        window.open(event.externalRegistrationLink, '_blank');
-      }
-      
       if (!isRegistered) {
-        await eventAPI.registerEvent(id);
-        setIsRegistered(true);
-        alert('Successfully registered for the event!');
+        // If event uses form method and we haven't loaded form questions, fetch them
+        if (event?.registrationMethod === 'FORM') {
+          if (registrationFormQuestions.length === 0) {
+            try {
+              const formData = await eventAPI.getRegistrationForm(id);
+              setRegistrationFormQuestions(formData.questions || []);
+            } catch (error) {
+              console.error('Failed to fetch registration form:', error);
+            }
+          }
+          setShowRegistrationForm(true);
+        } else if (event?.externalRegistrationLink) {
+          // External registration - open link but DON'T track in profile
+          window.open(event.externalRegistrationLink, '_blank');
+          alert('Opening external registration link. Please complete registration on the external form.');
+        } else {
+          // No registration method specified, just do basic registration
+          await eventAPI.registerEvent(id);
+          setIsRegistered(true);
+          updateRegistrationCount(1);
+          alert('Successfully registered for the event!');
+        }
+      } else {
+        await eventAPI.unregisterEvent(id);
+        setIsRegistered(false);
+        updateRegistrationCount(-1);
+        alert('You have been unregistered from the event.');
       }
     } catch (error: any) {
-      console.error('Failed to register:', error);
-      alert(error.response?.data?.error || 'Failed to register');
+      console.error('Failed to update registration:', error);
+      alert(error.response?.data?.error || 'Failed to update registration');
     }
   };
 
@@ -178,7 +247,7 @@ export const EventDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-40">
         <div className="max-w-4xl mx-auto p-4 flex items-center">
@@ -286,15 +355,18 @@ export const EventDetailPage: React.FC = () => {
                   <a
                     key={file.url || idx}
                     href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between bg-blue-50 border border-blue-100 hover:border-blue-200 px-4 py-3 rounded-lg transition-colors"
+                    download={file.name || `Brochure ${idx + 1}`}
+                    className="flex items-center justify-between bg-blue-50 border border-blue-100 hover:border-blue-200 px-4 py-3 rounded-lg transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      // Allow default download behavior
+                      e.stopPropagation();
+                    }}
                   >
                     <div className="flex items-center gap-2 text-blue-800 font-medium">
                       <Download className="w-4 h-4" />
                       <span className="truncate">{file.name || `Brochure ${idx + 1}`}</span>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs text-blue-600 font-medium">Download</span>
                   </a>
                 ))}
               </div>
@@ -305,23 +377,42 @@ export const EventDetailPage: React.FC = () => {
           {event.posterImages && event.posterImages.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-3">Event Posters</h2>
-              <div className="relative bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+              <div className="relative bg-gray-50 border border-gray-200 rounded-lg overflow-hidden" style={{ height: '400px' }}>
                 <img
                   src={event.posterImages[posterIndex]?.url}
                   alt={event.posterImages[posterIndex]?.name || `Poster ${posterIndex + 1}`}
-                  className="w-full max-h-[360px] object-contain bg-white"
+                  className="w-full h-full object-contain bg-white"
                 />
+
+                {/* Action buttons */}
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <a
+                    href={event.posterImages[posterIndex]?.url}
+                    download={event.posterImages[posterIndex]?.name || `Poster ${posterIndex + 1}`}
+                    className="bg-white/90 hover:bg-white rounded-full p-2 shadow transition-colors"
+                    title="Download poster"
+                  >
+                    <Download className="w-5 h-5 text-gray-700" />
+                  </a>
+                  <button
+                    onClick={() => setShowFullPoster(true)}
+                    className="bg-white/90 hover:bg-white rounded-full p-2 shadow transition-colors"
+                    title="View fullscreen"
+                  >
+                    <Maximize2 className="w-5 h-5 text-gray-700" />
+                  </button>
+                </div>
 
                 {event.posterImages.length > 1 && (
                   <>
                     <button
-                      onClick={() => setPosterIndex((prev) => (prev - 1 + event.posterImages.length) % event.posterImages.length)}
+                      onClick={() => setPosterIndex((prev) => (prev - 1 + (event?.posterImages?.length || 1)) % (event?.posterImages?.length || 1))}
                       className="absolute top-1/2 -translate-y-1/2 left-2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => setPosterIndex((prev) => (prev + 1) % event.posterImages.length)}
+                      onClick={() => setPosterIndex((prev) => (prev + 1) % (event?.posterImages?.length || 1))}
                       className="absolute top-1/2 -translate-y-1/2 right-2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
                     >
                       <ChevronRight className="w-5 h-5" />
@@ -330,12 +421,15 @@ export const EventDetailPage: React.FC = () => {
                 )}
               </div>
               {event.posterImages.length > 1 && (
-                <div className="flex gap-2 mt-3 overflow-x-auto">
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
                   {event.posterImages.map((poster, idx) => (
                     <button
                       key={poster.url || idx}
                       onClick={() => setPosterIndex(idx)}
-                      className={`border rounded-md overflow-hidden w-20 h-16 flex-shrink-0 ${idx === posterIndex ? 'border-blue-500' : 'border-transparent hover:border-gray-200'}`}
+                      className={`border-2 rounded-md overflow-hidden flex-shrink-0 transition-all ${
+                        idx === posterIndex ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      style={{ width: '100px', height: '100px' }}
                     >
                       <img src={poster.url} alt={poster.name || `Poster ${idx + 1}`} className="w-full h-full object-cover" />
                     </button>
@@ -380,6 +474,20 @@ export const EventDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Registration Info */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">Registration Method</h3>
+            {event?.registrationMethod === 'FORM' ? (
+              <p className="text-sm text-blue-800">
+                This event uses our built-in registration form. Click "Fill Registration Form" to register and answer the event-specific questions.
+              </p>
+            ) : (
+              <p className="text-sm text-blue-800">
+                This event uses external registration. You'll be redirected to complete registration on the external platform.
+              </p>
+            )}
+          </div>
+
           {/* Social Media */}
           {socialLinks.length > 0 && (
             <div className="mb-6">
@@ -414,9 +522,54 @@ export const EventDetailPage: React.FC = () => {
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="bg-white rounded-lg shadow-sm p-4 flex gap-3">
+      {/* Fullscreen Poster Modal */}
+      {showFullPoster && event.posterImages && (
+        <div 
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowFullPoster(false)}
+        >
+          <button
+            onClick={() => setShowFullPoster(false)}
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img
+            src={event.posterImages[posterIndex]?.url}
+            alt={event.posterImages[posterIndex]?.name || `Poster ${posterIndex + 1}`}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {event.posterImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPosterIndex((prev) => (prev - 1 + (event?.posterImages?.length || 1)) % (event?.posterImages?.length || 1));
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors"
+              >
+                <ChevronLeft className="w-6 h-6 text-white" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPosterIndex((prev) => (prev + 1) % (event?.posterImages?.length || 1));
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors"
+              >
+                <ChevronRight className="w-6 h-6 text-white" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Action Buttons - Sticky at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40">
+        <div className="max-w-4xl mx-auto p-4 flex gap-3">
           <button
             onClick={handleLike}
             className={`flex items-center justify-center px-6 py-3 rounded-lg border-2 transition-colors ${
@@ -430,14 +583,37 @@ export const EventDetailPage: React.FC = () => {
           </button>
           <button
             onClick={handleRegister}
-            disabled={isRegistered && !event.externalRegistrationLink}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center"
+            className={`flex-1 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center text-white ${
+              isRegistered
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            {isRegistered ? 'Already Registered' : 'Register Now'}
-            {event.externalRegistrationLink && <ExternalLink className="w-4 h-4 ml-2" />}
+            {isRegistered ? (
+              <>
+                Unregister
+              </>
+            ) : (
+              <>
+                {event?.registrationMethod === 'FORM' ? 'Fill Registration Form' : 'Register Now'}
+                {event?.externalRegistrationLink && <ExternalLink className="w-4 h-4 ml-2" />}
+              </>
+            )}
           </button>
         </div>
       </div>
+
+      {/* Registration Form Modal */}
+      {event && (
+        <RegistrationFormModal
+          isOpen={showRegistrationForm}
+          eventTitle={event.title}
+          questions={registrationFormQuestions}
+          onSubmit={handleRegistrationSubmit}
+          onCancel={() => setShowRegistrationForm(false)}
+          isLoading={registrationLoading}
+        />
+      )}
     </div>
   );
 };

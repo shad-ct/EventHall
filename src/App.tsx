@@ -7,10 +7,11 @@ import { SearchPage } from './pages/SearchPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { EventDetailPage } from './pages/EventDetailPage';
-import { AdminEventsPage } from './pages/AdminEventsPage';
+import { HostEventsPage } from './pages/HostEventsPage';
 import { EventFormPage } from './pages/EventFormPage';
+import { EventManagePage } from './pages/EventManagePage';
 import { UltimateAdminPage } from './pages/UltimateAdminPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
+import HostDashboardPage from './pages/HostDashboardPage';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -54,7 +55,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Ultimate Admin Route wrapper
+// Ultimate Event Host Route wrapper
 const UltimateAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
@@ -137,17 +138,17 @@ function AppRoutes() {
         }
       />
 
-      {/* Admin Routes */}
+      {/* Host Routes */}
       <Route
-        path="/admin/events"
+        path="/host/events"
         element={
           <AdminRoute>
-            <AdminEventsPage />
+            <HostEventsPage />
           </AdminRoute>
         }
       />
       <Route
-        path="/admin/events/create"
+        path="/host/events/create"
         element={
           <AdminRoute>
             <EventFormPage />
@@ -155,7 +156,15 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/admin/events/edit/:id"
+        path="/host/events/manage/:id"
+        element={
+          <AdminRoute>
+            <EventManagePage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/host/events/edit/:id"
         element={
           <AdminRoute>
             <EventFormPage />
@@ -165,7 +174,7 @@ function AppRoutes() {
 
       {/* Ultimate Admin Routes */}
       <Route
-        path="/admin/dashboard"
+        path="/host/dashboard"
         element={
           <UltimateAdminRoute>
             <UltimateAdminPage />
@@ -174,7 +183,7 @@ function AppRoutes() {
       />
 
       {/* Demo Admin Dashboard Route (Hidden) */}
-      <Route path="/admin-demo" element={<AdminDashboardPage />} />
+      <Route path="/admin-demo" element={<HostDashboardPage />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/home" replace />} />

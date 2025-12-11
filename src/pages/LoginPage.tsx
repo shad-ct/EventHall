@@ -26,7 +26,7 @@ export const LoginPage: React.FC = () => {
       await login(username.trim(), password);
     } catch (err) {
       console.error('Login failed:', err);
-      setError('Invalid credentials. Try user/user123, admin/admin123, or uadmin/uadmin123.');
+      setError('Invalid credentials. Try user/user123, event host (admin/admin123), or ultimate host (uadmin/uadmin123).');
     }
   };
 
@@ -51,7 +51,7 @@ export const LoginPage: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="user | admin | uadmin"
+              placeholder="user | admin (event host) | uadmin (ultimate host)"
               required
             />
           </div>
@@ -81,8 +81,8 @@ export const LoginPage: React.FC = () => {
 
         <div className="mt-6 text-xs text-gray-500 space-y-1">
           <div>Normal user: user / user123</div>
-          <div>Admin: admin / admin123</div>
-          <div>Ultimate admin: uadmin / uadmin123</div>
+          <div>Event host: admin / admin123</div>
+          <div>Ultimate event host: uadmin / uadmin123</div>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { BottomNav } from '../components/BottomNav';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import { DesktopNav } from '../components/DesktopNav';
 
-export const AdminEventsPage: React.FC = () => {
+export const HostEventsPage: React.FC = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +142,7 @@ export const AdminEventsPage: React.FC = () => {
                 </div>
                 <EventCard
                   event={event}
-                  onClick={() => navigate(`/host/events/edit/${event.id}`)}
+                  onClick={() => navigate(`/host/events/manage/${event.id}`)}
                 />
               </div>
             ))}

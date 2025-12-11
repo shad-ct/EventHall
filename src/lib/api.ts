@@ -12,6 +12,7 @@ import {
   updateEvent as fsUpdateEvent,
   likeEvent as fsLikeEvent,
   registerEvent as fsRegisterEvent,
+  unregisterEvent as fsUnregisterEvent,
   getRegisteredEvents as fsGetRegisteredEvents,
   getLikedEvents as fsGetLikedEvents,
   getUserEvents as fsGetUserEvents,
@@ -28,6 +29,11 @@ import {
   toggleEventFeatured,
   getFeaturedEvents,
   toggleEventPublish,
+  createRegistrationForm as fsCreateRegistrationForm,
+  getRegistrationForm as fsGetRegistrationForm,
+  registerEventWithForm as fsRegisterEventWithForm,
+  getEventRegistrations as fsGetEventRegistrations,
+  updateRegistrationStatus as fsUpdateRegistrationStatus,
 } from './firestore';
 
 export const authAPI = {
@@ -55,7 +61,13 @@ export const eventAPI = {
   updateEvent: fsUpdateEvent,
   likeEvent: fsLikeEvent,
   registerEvent: fsRegisterEvent,
+  unregisterEvent: fsUnregisterEvent,
   checkInteractions: fsCheckInteractions,
+  createRegistrationForm: fsCreateRegistrationForm,
+  getRegistrationForm: fsGetRegistrationForm,
+  registerEventWithForm: fsRegisterEventWithForm,
+  getEventRegistrations: fsGetEventRegistrations,
+  updateRegistrationStatus: fsUpdateRegistrationStatus,
 };
 
 export const adminAPI = {

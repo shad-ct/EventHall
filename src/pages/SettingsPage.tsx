@@ -21,7 +21,7 @@ export const SettingsPage: React.FC = () => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
 
-  // Admin application states
+  // Event host application states
   const [motivationText, setMotivationText] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
@@ -168,7 +168,7 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Admin Section */}
+        {/* Event Host Section */}
         {user?.role === 'STANDARD_USER' && (
           <div className="bg-white rounded-lg shadow-sm">
             <div className="p-4 border-b">
@@ -180,7 +180,7 @@ export const SettingsPage: React.FC = () => {
             >
               <Shield className="w-5 h-5 text-blue-600 mr-3" />
               <div className="flex-1 text-left">
-                <p className="font-medium text-gray-900">Apply for Admin Role</p>
+                <p className="font-medium text-gray-900">Apply to Be an Event Host</p>
                 <p className="text-sm text-gray-500">Create and manage your own events</p>
               </div>
             </button>
@@ -190,10 +190,10 @@ export const SettingsPage: React.FC = () => {
         {(user?.role === 'EVENT_ADMIN' || user?.role === 'ULTIMATE_ADMIN') && (
           <div className="bg-white rounded-lg shadow-sm">
             <div className="p-4 border-b">
-              <h2 className="font-semibold text-gray-900">Admin Panel</h2>
+              <h2 className="font-semibold text-gray-900">Event Host Panel</h2>
             </div>
             <button
-              onClick={() => navigate('/admin/events')}
+              onClick={() => navigate('/host/events')}
               className="w-full p-4 flex items-center hover:bg-gray-50 transition-colors"
             >
               <Shield className="w-5 h-5 text-blue-600 mr-3" />
@@ -204,13 +204,13 @@ export const SettingsPage: React.FC = () => {
             </button>
             {user?.role === 'ULTIMATE_ADMIN' && (
               <button
-                onClick={() => navigate('/admin/dashboard')}
+                onClick={() => navigate('/host/dashboard')}
                 className="w-full p-4 flex items-center hover:bg-gray-50 transition-colors border-t"
               >
                 <Shield className="w-5 h-5 text-purple-600 mr-3" />
                 <div className="flex-1 text-left">
                   <p className="font-medium text-gray-900">Ultimate Admin Dashboard</p>
-                  <p className="text-sm text-gray-500">Manage all events and applications</p>
+                  <p className="text-sm text-gray-500">Oversee all events and host applications</p>
                 </div>
               </button>
             )}
@@ -322,24 +322,24 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Apply for Admin Modal */}
+      {/* Apply to Be an Event Host Modal */}
       {showApplyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end md:items-center md:justify-center">
           <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
-              <h3 className="text-lg font-semibold">Apply for Admin Role</h3>
+              <h3 className="text-lg font-semibold">Apply to Be an Event Host</h3>
               <button onClick={() => setShowApplyModal(false)} className="text-gray-600">✕</button>
             </div>
 
             <div className="p-4">
               <p className="text-gray-600 mb-4">
-                Fill out the form below to request admin privileges for creating and managing events.
+                Fill out the form below to request event host privileges for creating and managing events.
               </p>
 
               <form onSubmit={handleApplyForAdmin} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Why do you want to become an admin? *
+                    Why do you want to become an event host? *
                   </label>
                   <textarea
                     value={motivationText}

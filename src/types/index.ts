@@ -22,6 +22,37 @@ export interface User {
   interests: UserInterest[];
 }
 
+export interface RegistrationFormQuestion {
+  id: string;
+  eventId: string;
+  questionCategory: string;
+  questionKey: string;
+  questionText: string;
+  questionType: 'text' | 'email' | 'dropdown' | 'textarea' | 'url' | 'yes/no' | 'multi-select';
+  options?: string[];
+  isRequired: boolean;
+  displayOrder: number;
+  isCustom: boolean;
+}
+
+export interface RegistrationFormResponse {
+  id: string;
+  registrationId: string;
+  eventId: string;
+  userId: string;
+  questionId: string;
+  answer: string;
+}
+
+export interface EventRegistration {
+  id: string;
+  userId: string;
+  eventId: string;
+  registrationType: 'EXTERNAL' | 'FORM';
+  createdAt: string;
+  formResponses?: RegistrationFormResponse[];
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -43,6 +74,8 @@ export interface Event {
   contactPhone: string;
   externalRegistrationLink?: string;
   howToRegisterLink?: string;
+  registrationMethod?: 'EXTERNAL' | 'FORM';
+  registrationFormQuestions?: RegistrationFormQuestion[];
   instagramUrl?: string;
   facebookUrl?: string;
   youtubeUrl?: string;
