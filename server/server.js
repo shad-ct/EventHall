@@ -189,7 +189,7 @@ app.post('/api/events', async (req, res) => {
   }
   console.log('Creating event with registrationMethod:', req.body.registrationMethod);
   const result = await models.createEvent(req.body, userId);
-  console.log('Event created with ID:', result.event?.id);
+  console.log('Event created with ID:', result.eventId);
   res.json(result);
 });
 

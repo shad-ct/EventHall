@@ -219,12 +219,8 @@ export const getEvent = async (id) => {
 export const createEvent = async (eventData, userId) => {
   const connection = await pool.getConnection();
   try {
-    // Get user to check role
-    const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    const isUltimateAdmin = users[0]?.role === 'ULTIMATE_ADMIN';
-
     const eventId = Math.random().toString(36).substring(7) + Date.now();
-    const status = isUltimateAdmin ? 'PUBLISHED' : 'PENDING_APPROVAL';
+    const status = 'PUBLISHED';
 
     const [user] = await connection.query('SELECT full_name, email FROM users WHERE id = ?', [userId]);
 
@@ -312,7 +308,7 @@ export const createEvent = async (eventData, userId) => {
 
     return {
       success: true,
-      message: isUltimateAdmin ? 'Event published successfully' : 'Event submitted for approval',
+      message: 'Event published successfully',
       eventId,
     };
   } finally {

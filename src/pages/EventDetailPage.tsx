@@ -31,6 +31,11 @@ import {
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [canGoBack, setCanGoBack] = useState(false);
+  useEffect(() => {
+    // Show back button if history length > 1 (user navigated from anywhere, including this site)
+    setCanGoBack(window.history.length > 1);
+  }, []);
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -158,14 +163,17 @@ export const EventDetailPage: React.FC = () => {
   };
 
   const formatDate = (dateStr: string, timeStr: string) => {
-    const date = new Date(dateStr);
+    const date = new Date(dateStr + 'T' + timeStr);
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     };
-    return `${date.toLocaleDateString('en-US', options)} at ${timeStr}`;
+    return date.toLocaleString('en-US', options);
   };
 
   const categories = useMemo(() => {
@@ -181,7 +189,8 @@ export const EventDetailPage: React.FC = () => {
     const legacyAdditional = ((event as any).additionalCategoryIds || []).map((catId: string) =>
       mockCategories.find((c) => c.id === catId)
     );
-    return [primary, ...additional, ...legacyAdditional].filter(Boolean);
+    // Filter out any falsy values (null/undefined)
+    return [primary, ...additional, ...legacyAdditional].filter(cat => cat && cat.name);
   }, [event]);
 
   const parseSocialLink = (url?: string) => {
@@ -237,7 +246,7 @@ export const EventDetailPage: React.FC = () => {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Event not found</p>
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="text-blue-600 hover:underline"
           >
             Go back
@@ -270,25 +279,36 @@ export const EventDetailPage: React.FC = () => {
     }
   };
 
+  // Back button handler with fallback
+  const handleBack = () => {
+    const referrer = document.referrer;
+    const isInternalReferrer = referrer && referrer.startsWith(window.location.origin);
+    if (window.history.length > 1 && isInternalReferrer) {
+      navigate(-1);
+    } else {
+      navigate('/'); // fallback to homepage
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto p-4 flex items-center">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-lg mr-3"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-semibold">Event Details</h1>
-        </div>
-      </div>
 
       <div className="max-w-4xl mx-auto p-4">
 
         {/* Banner */}
+
         <div className="relative h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg overflow-hidden mb-6">
+
+          {canGoBack && (
+            <button onClick={handleBack}
+              className="absolute top-4 left-4 bg-white/90 hover:bg-white rounded-full p-2 shadow border border-gray-200 transition-colors group"
+              title="Go back"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          )}
+
           <button
             onClick={handleShare}
             className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow border border-gray-200 transition-colors group"
@@ -296,7 +316,7 @@ export const EventDetailPage: React.FC = () => {
             aria-label="Share event link"
           >
             <Share2 className="w-5 h-5 text-blue-600" />
-            <span className="absolute opacity-0 group-hover:opacity-100 bg-gray-800 text-white text-xs rounded px-2 py-1 left-1/2 -translate-x-1/2 mt-2 pointer-events-none transition-opacity z-50" style={{top: '100%'}}>Share</span>
+            <span className="absolute opacity-0 group-hover:opacity-100 bg-gray-800 text-white text-xs rounded px-2 py-1 left-1/2 -translate-x-1/2 mt-2 pointer-events-none transition-opacity z-50" style={{ top: '100%' }}>Share</span>
           </button>
           {event.bannerUrl ? (
             <img src={event.bannerUrl} alt={event.title} className="w-full h-full object-cover" />
@@ -311,19 +331,31 @@ export const EventDetailPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           {/* Category & Status */}
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            {categories.length === 0 ? (
+            {categories.length === 0 && (!Array.isArray((event as any).customCategories) || (event as any).customCategories.length === 0) ? (
               <span className="text-xs px-3 py-1 rounded-full font-medium bg-gray-100 text-gray-700">Event</span>
             ) : (
-              categories.map((cat, idx) => (
-                <span
-                  key={`${cat.id || cat.slug}-${idx}`}
-                  className={`text-xs px-3 py-1 rounded-full font-medium ${idx === 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  {cat.name}
-                </span>
-              ))
+              <>
+                {categories.map((cat, idx) => (
+                  cat && cat.name ? (
+                    <span
+                      key={`${cat.id || cat.slug}-${idx}`}
+                      className={`text-xs px-3 py-1 rounded-full font-medium ${idx === 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {cat.name}
+                    </span>
+                  ) : null
+                ))}
+                {Array.isArray((event as any).customCategories) && (event as any).customCategories.map((catName: string, idx: number) => (
+                  typeof catName === 'string' && catName.trim() !== '' ? (
+                    <span key={`custom-${idx}`} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
+                      {catName}
+                    </span>
+                  ) : null
+                ))}
+              </>
             )}
-            {(event as any).customCategories?.map((catName: string, idx: number) => (
+            {/* Only render customCategories if it exists and is an array */}
+            {Array.isArray((event as any).customCategories) && (event as any).customCategories.map((catName: string, idx: number) => (
               <span key={`custom-${idx}`} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
                 {catName}
               </span>
@@ -507,19 +539,6 @@ export const EventDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Registration Info */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2">Registration Method</h3>
-            {event?.registrationMethod === 'FORM' ? (
-              <p className="text-sm text-blue-800">
-                This event uses our built-in registration form. Click "Fill Registration Form" to register and answer the event-specific questions.
-              </p>
-            ) : (
-              <p className="text-sm text-blue-800">
-                This event uses external registration. You'll be redirected to complete registration on the external platform.
-              </p>
-            )}
-          </div>
 
           {/* Social Media */}
           {socialLinks.length > 0 && (
