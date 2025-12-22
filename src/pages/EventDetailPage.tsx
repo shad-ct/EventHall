@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Maximize2,
   X,
+  Share2,
 } from 'lucide-react';
 
 export const EventDetailPage: React.FC = () => {
@@ -43,7 +44,7 @@ export const EventDetailPage: React.FC = () => {
   useEffect(() => {
     const fetchEvent = async () => {
       if (!id) return;
-      
+
       try {
         const data = await eventAPI.getEvent(id);
         setEvent(data.event);
@@ -158,11 +159,11 @@ export const EventDetailPage: React.FC = () => {
 
   const formatDate = (dateStr: string, timeStr: string) => {
     const date = new Date(dateStr);
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     };
     return `${date.toLocaleDateString('en-US', options)} at ${timeStr}`;
   };
@@ -246,6 +247,29 @@ export const EventDetailPage: React.FC = () => {
     );
   }
 
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: event?.title || 'Event',
+      text: `Check out this event: ${event?.title}`,
+      url: shareUrl,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // User cancelled or error
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Event link copied to clipboard!');
+      } catch (err) {
+        alert('Failed to copy link.');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
@@ -262,8 +286,18 @@ export const EventDetailPage: React.FC = () => {
       </div>
 
       <div className="max-w-4xl mx-auto p-4">
+
         {/* Banner */}
         <div className="relative h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg overflow-hidden mb-6">
+          <button
+            onClick={handleShare}
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow border border-gray-200 transition-colors group"
+            title="Share event link"
+            aria-label="Share event link"
+          >
+            <Share2 className="w-5 h-5 text-blue-600" />
+            <span className="absolute opacity-0 group-hover:opacity-100 bg-gray-800 text-white text-xs rounded px-2 py-1 left-1/2 -translate-x-1/2 mt-2 pointer-events-none transition-opacity z-50" style={{top: '100%'}}>Share</span>
+          </button>
           {event.bannerUrl ? (
             <img src={event.bannerUrl} alt={event.title} className="w-full h-full object-cover" />
           ) : (
@@ -426,9 +460,8 @@ export const EventDetailPage: React.FC = () => {
                     <button
                       key={poster.url || idx}
                       onClick={() => setPosterIndex(idx)}
-                      className={`border-2 rounded-md overflow-hidden flex-shrink-0 transition-all ${
-                        idx === posterIndex ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                      className={`border-2 rounded-md overflow-hidden flex-shrink-0 transition-all ${idx === posterIndex ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       style={{ width: '100px', height: '100px' }}
                     >
                       <img src={poster.url} alt={poster.name || `Poster ${idx + 1}`} className="w-full h-full object-cover" />
@@ -526,7 +559,7 @@ export const EventDetailPage: React.FC = () => {
 
       {/* Fullscreen Poster Modal */}
       {showFullPoster && event.posterImages && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
           onClick={() => setShowFullPoster(false)}
         >
@@ -572,22 +605,20 @@ export const EventDetailPage: React.FC = () => {
         <div className="max-w-4xl mx-auto p-4 flex gap-3">
           <button
             onClick={handleLike}
-            className={`flex items-center justify-center px-6 py-3 rounded-lg border-2 transition-colors ${
-              isLiked
-                ? 'border-red-500 bg-red-50 text-red-600'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-            }`}
+            className={`flex items-center justify-center px-6 py-3 rounded-lg border-2 transition-colors ${isLiked
+              ? 'border-red-500 bg-red-50 text-red-600'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
           >
             <Heart className={`w-5 h-5 mr-2 ${isLiked ? 'fill-red-600' : ''}`} />
             {isLiked ? 'Liked' : 'Like'}
           </button>
           <button
             onClick={handleRegister}
-            className={`flex-1 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center text-white ${
-              isRegistered
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+            className={`flex-1 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center text-white ${isRegistered
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-blue-600 hover:bg-blue-700'
+              }`}
           >
             {isRegistered ? (
               <>
