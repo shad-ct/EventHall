@@ -8,4 +8,7 @@ export default defineConfig({
   plugins: [react(),
   tailwindcss(),
   ],
+  server:{
+    allowedHosts:['pearl-island-598f.tunnl.gg']
+  }
 })
