@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCategories, updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { getCategories } from '../lib/api-client';
 import { adminAPI } from '../lib/api';
 import { EventCategory } from '../types';
 import { ArrowLeft, LogOut, Shield, User as UserIcon, Heart } from 'lucide-react';

@@ -87,7 +87,7 @@ app.get('/api/maps/reverse', async (req, res) => {
 });
 
 // ==================== AUTH ENDPOINTS ====================
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });

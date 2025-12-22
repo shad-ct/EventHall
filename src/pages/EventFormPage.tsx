@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
-import { getCategories } from '../lib/firestore';
+import { getCategories } from '../lib/api-client';
 import { uploadFile } from '../lib/file-storage';
 import { MapPickerModal } from '../components/MapPickerModal';
 import { RegistrationFormBuilder, FormQuestion } from '../components/RegistrationFormBuilder';

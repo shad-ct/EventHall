@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { updateUserProfile, updateUserInterests, getCategories } from '../lib/firestore';
+import { updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { getCategories } from '../lib/api-client';
 import { createUserWithGoogle } from '../lib/google-auth';
 import { EventCategory } from '../types';
 

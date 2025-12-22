@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { eventAPI } from '../lib/api';
-import { getCategories } from '../lib/firestore';
+import { getCategories } from '../lib/api-client';
 import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
 import { BottomNav } from '../components/BottomNav';
