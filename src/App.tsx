@@ -7,10 +7,12 @@ import { SearchPage } from './pages/SearchPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { EventDetailPage } from './pages/EventDetailPage';
+import { ProgramsPage } from './pages/ProgramsPage';
+import { ProgramDetailPage } from './pages/ProgramDetailPage';
 import { HostEventsPage } from './pages/HostEventsPage';
 import { EventFormPage } from './pages/EventFormPage';
 import { EventManagePage } from './pages/EventManagePage';
-import { UltimateAdminPage } from './pages/UltimateAdminPage';
+import { AdminPage } from './pages/AdminPage';
 import HostDashboardPage from './pages/HostDashboardPage';
 
 // Protected Route wrapper
@@ -27,6 +29,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+
+  // If user is admin (god), never require profile completion
+  if (
+    user &&
+    user.username === 'admin' &&
+    user.role === 'ADMIN'
+  ) {
+    // skip profile completion for god admin
+    return <>{children}</>;
   }
 
   if (needsProfileCompletion && window.location.pathname !== '/complete-profile') {
@@ -48,7 +61,10 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user || (user.role !== 'EVENT_ADMIN' && user.role !== 'ULTIMATE_ADMIN')) {
+  if (
+    !user ||
+    (user.role !== 'EVENT_ADMIN' && user.role !== 'ADMIN' && (user.role as string) !== 'HOST')
+  ) {
     return <Navigate to="/home" replace />;
   }
 
@@ -67,7 +83,7 @@ const UltimateAdminRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user || user.role !== 'ULTIMATE_ADMIN') {
+  if (!user || user.role !== 'ADMIN') {
     return <Navigate to="/home" replace />;
   }
 
@@ -138,6 +154,34 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/programs"
+        element={
+          <ProtectedRoute>
+            <ProgramsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/programs/:programName"
+        element={
+          <ProtectedRoute>
+            <ProgramDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Friendly SEO route for program/event (e.g. /programname/eventid) */}
+      <Route
+        path="/:program/:event"
+        element={
+          <ProtectedRoute>
+            <EventDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Host Routes */}
       <Route
         path="/host/events"
@@ -177,7 +221,7 @@ function AppRoutes() {
         path="/host/dashboard"
         element={
           <UltimateAdminRoute>
-            <UltimateAdminPage />
+            <AdminPage />
           </UltimateAdminRoute>
         }
       />

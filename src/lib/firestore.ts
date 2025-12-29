@@ -47,6 +47,23 @@ export const getCategories = async () => {
   return apiClient.getCategories();
 };
 
+// Programs
+export const getPrograms = async () => {
+  return apiClient.getPrograms();
+};
+
+export const getProgram = async (programName: string) => {
+  return apiClient.getProgram(programName);
+};
+
+export const getProgramEvents = async (programName: string) => {
+  return apiClient.getProgramEvents(programName);
+};
+
+export const getProgramEvent = async (programName: string, eventId: string) => {
+  return apiClient.getProgramEvent(programName, eventId);
+};
+
 // Events
 export const getEvents = async (params?: any) => {
   return apiClient.getEvents(params);

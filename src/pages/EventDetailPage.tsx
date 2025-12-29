@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 export const EventDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, program, event: eventParam } = useParams<{ id?: string; program?: string; event?: string }>();
   const navigate = useNavigate();
   const [canGoBack, setCanGoBack] = useState(false);
   useEffect(() => {
@@ -48,21 +48,30 @@ export const EventDetailPage: React.FC = () => {
 
   useEffect(() => {
     const fetchEvent = async () => {
-      if (!id) return;
-
+      const useId = id || eventParam;
       try {
-        const data = await eventAPI.getEvent(id);
+        let data: any = null;
+        if (program && eventParam) {
+          // Fetch event by program + event id
+          data = await eventAPI.getProgramEvent(decodeURIComponent(program), decodeURIComponent(eventParam));
+        } else if (useId) {
+          data = await eventAPI.getEvent(useId as string);
+        } else {
+          setLoading(false);
+          return;
+        }
+
         setEvent(data.event);
 
         // Check interactions
-        const interactions = await eventAPI.checkInteractions([id]);
-        setIsLiked(interactions.likedEventIds.includes(id));
-        setIsRegistered(interactions.registeredEventIds.includes(id));
+        const interactions = await eventAPI.checkInteractions([data.event.id]);
+        setIsLiked(interactions.likedEventIds.includes(data.event.id));
+        setIsRegistered(interactions.registeredEventIds.includes(data.event.id));
 
         // If event uses form method, fetch registration form questions
         if (data.event?.registrationMethod === 'FORM') {
           try {
-            const formData = await eventAPI.getRegistrationForm(id);
+            const formData = await eventAPI.getRegistrationForm(data.event.id);
             setRegistrationFormQuestions(formData.questions || []);
           } catch (error) {
             console.error('Failed to fetch registration form:', error);
@@ -570,7 +579,22 @@ export const EventDetailPage: React.FC = () => {
           {/* Organizer */}
           <div className="pt-6 border-t">
             <p className="text-sm text-gray-600">
-              Organized by <span className="font-medium text-gray-900">{event.createdBy.fullName}</span>
+              Organized by{' '}
+              {event.createdBy?.program?.programName ? (
+                <a
+                  href={`/programs/${encodeURIComponent(event.createdBy.program.programName)}`}
+                  className="font-medium text-gray-900 hover:underline"
+                >
+                  {event.createdBy.program.programName}
+                </a>
+              ) : (
+                <a
+                  href={`/programs/${encodeURIComponent(event.createdBy.fullName)}`}
+                  className="font-medium text-gray-900 hover:underline"
+                >
+                  {event.createdBy.fullName}
+                </a>
+              )}
             </p>
           </div>
         </div>

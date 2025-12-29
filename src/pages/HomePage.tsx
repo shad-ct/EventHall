@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { eventAPI, adminAPI } from '../lib/api';
 import { Event, EventCategory } from '../types';
 import { EventCard } from '../components/EventCard';
+import HostAvatar from '../components/HostAvatar';
 import { BottomNav } from '../components/BottomNav';
 import { BannerSlider } from '../components/BannerSlider';
 import { SearchBar } from '../components/SearchBar';
@@ -22,6 +23,7 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [eventsByCategory, setEventsByCategory] = useState<EventsByCategory>({});
   const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedEventIds, setLikedEventIds] = useState<string[]>([]);
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
@@ -38,6 +40,14 @@ export const HomePage: React.FC = () => {
         // Fetch featured events first
         const featuredData = await adminAPI.getFeaturedEvents();
         setFeaturedEvents(featuredData.events || []);
+
+        // Fetch programs to show below banner
+        try {
+          const progRes = await eventAPI.getPrograms();
+          setPrograms(progRes.programs || []);
+        } catch (err) {
+          console.error('Failed to fetch programs', err);
+        }
 
         // If user has no interests, prompt them to set interests
         if (!user.interests || user.interests.length === 0) {
@@ -117,6 +127,67 @@ export const HomePage: React.FC = () => {
       </div>
       {/* Featured Events Banner */}
       <BannerSlider events={featuredEvents} onEventClick={handleEventClick} />
+
+      {/* Programs horizontal scroll */}
+      {programs && programs.length > 0 && (
+        <div className="w-full p-4">
+          <div className="flex items-center justify-between mb-3 max-w-6xl mx-auto px-3">
+            <h3 className="text-lg font-bold">Programs</h3>
+            <button
+              onClick={() => navigate('/programs')}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              See all
+            </button>
+          </div>
+
+          <div className="max-w-6xl mx-auto px-3">
+            <div className="flex overflow-x-auto gap-5 pb-4 ml-1 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth w-full">
+              {programs.slice(0, 8).map((p) => {
+                const imageUrl = p.host?.logoUrl || p.host?.photoUrl || p.logoUrl || p.programLogo || '';
+                const dateLabel = p.date || p.startDate || p.dateFrom || '';
+                const locationLabel = p.location || p.loc || (p.host && (p.host.location || p.host.locationName)) || '';
+
+                return (
+                  <div key={p.programName || p.id} className="flex-shrink-0 w-[280px] snap-start">
+                    <div
+                      onClick={() => navigate(`/programs/${encodeURIComponent(p.programName || p.id)}`)}
+                      className="bg-white rounded-lg p-4 shadow hover:shadow-md cursor-pointer h-full flex flex-col justify-between"
+                    >
+                      <div className="flex items-start gap-3">
+                        <HostAvatar name={p.programName} imageUrl={imageUrl} size={56} />
+                        <div className="flex-1">
+                          <div className="text-md font-semibold text-gray-900 truncate">{p.programName}</div>
+                          {dateLabel && <div className="text-sm text-gray-500 mt-1">{dateLabel}</div>}
+                          {p.description && (
+                            <div className="mt-2">
+                              <div
+                                className="text-sm text-gray-600 line-clamp-2 md:line-clamp-3"
+                                title={p.description}
+                                style={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  minHeight: '2.5em',
+                                  maxHeight: '3.2em',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {p.description}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="w-full p-4">
         {!user?.interests || user.interests.length === 0 ? (

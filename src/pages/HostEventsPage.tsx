@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { userAPI } from '../lib/api';
 import { Event } from '../types';
 import { EventCard } from '../components/EventCard';
+import { useAuth } from '../contexts/AuthContext';
 import { BottomNav } from '../components/BottomNav';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import { DesktopNav } from '../components/DesktopNav';
@@ -12,9 +13,27 @@ export const HostEventsPage: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [hostStatus, setHostStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
+    // Fetch host approval status from user profile
+    if (user) {
+      if (user.role === 'EVENT_ADMIN') {
+        setHostStatus(user.hostStatus || 'PENDING');
+      } else if (user.role === 'HOST') {
+        // Users with role HOST are considered approved hosts
+        setHostStatus('APPROVED');
+      } else {
+        setHostStatus(null);
+      }
+    } else {
+      setHostStatus(null);
+    }
+  }, [user]);
+  useEffect(() => {
     fetchMyEvents();
+    // Optionally, fetch host status from backend if not present in user
   }, []);
 
   const fetchMyEvents = async () => {
@@ -77,6 +96,8 @@ export const HostEventsPage: React.FC = () => {
             <button
               onClick={() => navigate('/host/events/create')}
               className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={hostStatus !== 'APPROVED'}
+              title={hostStatus !== 'APPROVED' ? 'Wait till the admin accepts your request' : ''}
             >
               <Plus className="w-5 h-5 mr-2" />
               Create Event
@@ -110,7 +131,17 @@ export const HostEventsPage: React.FC = () => {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto p-4">
-        {loading ? (
+        {hostStatus !== 'APPROVED' ? (
+          <div className="text-center py-12">
+            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              Wait till the admin accepts your request
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You can browse other events, but you cannot create new events until approved.
+            </p>
+          </div>
+        ) : loading ? (
           <div className="text-center py-12">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600">Loading events...</p>
@@ -129,6 +160,8 @@ export const HostEventsPage: React.FC = () => {
             <button
               onClick={() => navigate('/host/events/create')}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={hostStatus !== 'APPROVED'}
+              title={hostStatus !== 'APPROVED' ? 'Wait till the admin accepts your request' : ''}
             >
               Create Event
             </button>

@@ -12,33 +12,38 @@ const getAuthHeaders = (userId?: string): Record<string, string> => {
   return headers;
 };
 
+const fetchJson = async (url: string, init: RequestInit = {}, errorPrefix = 'Request failed') => {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`${errorPrefix}: ${response.status} ${body}`);
+  }
+  return response.json();
+};
+
 // User operations
 export const login = async (username: string, password: string) => {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  return fetchJson(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ username, password }),
-  });
-  if (!response.ok) throw new Error('Invalid credentials');
-  return response.json();
+  }, 'Invalid credentials');
 };
 
 export const getUser = async (uid: string) => {
-  const response = await fetch(`${API_BASE_URL}/users/${uid}`, {
-    method: 'GET',
-    headers: getAuthHeaders(uid),
-  });
-  if (!response.ok) return null;
-  return response.json();
+  try {
+    return await fetchJson(`${API_BASE_URL}/users/${uid}`, { method: 'GET', headers: getAuthHeaders(uid) }, 'Failed to fetch user');
+  } catch (err) {
+    return null;
+  }
 };
 
 export const getUserByEmail = async (email: string) => {
-  const response = await fetch(`${API_BASE_URL}/users/email/${email}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) return null;
-  return response.json();
+  try {
+    return await fetchJson(`${API_BASE_URL}/users/email/${email}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch user by email');
+  } catch (err) {
+    return null;
+  }
 };
 
 export const updateUserProfile = async (uid: string, updates: any) => {
@@ -47,285 +52,160 @@ export const updateUserProfile = async (uid: string, updates: any) => {
     headers: getAuthHeaders(uid),
     body: JSON.stringify(updates),
   });
-  if (!response.ok) throw new Error('Failed to update profile');
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Failed to update profile: ${response.status} ${body}`);
+  }
   return response.json();
 };
 
 export const updateUserInterests = async (uid: string, interestCategoryIds: string[]) => {
-  const response = await fetch(`${API_BASE_URL}/users/${uid}/interests`, {
+  return fetchJson(`${API_BASE_URL}/users/${uid}/interests`, {
     method: 'PUT',
     headers: getAuthHeaders(uid),
     body: JSON.stringify({ interestCategoryIds }),
-  });
-  if (!response.ok) throw new Error('Failed to update interests');
-  return response.json();
+  }, 'Failed to update interests');
 };
 
 // Categories
 export const getCategories = async () => {
-  const response = await fetch(`${API_BASE_URL}/categories`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch categories');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/categories`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch categories');
 };
 
 // Events
 export const getEvents = async (params?: any) => {
   const queryString = new URLSearchParams(params).toString();
-  const response = await fetch(`${API_BASE_URL}/events?${queryString}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events?${queryString}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch events');
 };
 
 export const getEventsByCategories = async (categoryIds: string[]) => {
-  const response = await fetch(`${API_BASE_URL}/events/categories?categoryIds=${categoryIds.join(',')}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/categories?categoryIds=${categoryIds.join(',')}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch events by categories');
 };
 
 export const getFeaturedEvents = async () => {
-  const response = await fetch(`${API_BASE_URL}/events/featured`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch featured events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/featured`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch featured events');
 };
 
 export const getEvent = async (id: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${id}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch event');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${id}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch event');
+};
+
+// Programs
+export const getPrograms = async () => {
+  return fetchJson(`${API_BASE_URL}/programs`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch programs');
+};
+
+export const getProgram = async (programName: string) => {
+  return fetchJson(`${API_BASE_URL}/programs/${encodeURIComponent(programName)}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch program');
+};
+
+export const getProgramEvents = async (programName: string) => {
+  return fetchJson(`${API_BASE_URL}/programs/${encodeURIComponent(programName)}/events`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch program events');
+};
+
+export const getProgramEvent = async (programName: string, eventId: string) => {
+  return fetchJson(`${API_BASE_URL}/programs/${encodeURIComponent(programName)}/events/${encodeURIComponent(eventId)}`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch program event');
 };
 
 export const createEvent = async (eventData: any, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events`, {
+  return fetchJson(`${API_BASE_URL}/events`, {
     method: 'POST',
     headers: getAuthHeaders(userId),
     body: JSON.stringify(eventData),
-  });
-  if (!response.ok) throw new Error('Failed to create event');
-  return response.json();
+  }, 'Failed to create event');
 };
 
 export const updateEvent = async (id: string, eventData: any, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${id}`, {
+  return fetchJson(`${API_BASE_URL}/events/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(userId),
     body: JSON.stringify(eventData),
-  });
-  if (!response.ok) throw new Error('Failed to update event');
-  return response.json();
+  }, 'Failed to update event');
 };
 
 export const likeEvent = async (eventId: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/like`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to like event');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/like`, { method: 'POST', headers: getAuthHeaders(userId) }, 'Failed to like event');
 };
 
 export const registerEvent = async (eventId: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to register for event');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/register`, { method: 'POST', headers: getAuthHeaders(userId) }, 'Failed to register for event');
 };
 
 export const unregisterEvent = async (eventId: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to unregister from event');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/register`, { method: 'DELETE', headers: getAuthHeaders(userId) }, 'Failed to unregister from event');
 };
 
 export const getRegisteredEvents = async (userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/user/registered`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch registered events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/user/registered`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch registered events');
 };
 
 export const getLikedEvents = async (userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/user/liked`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch liked events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/user/liked`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch liked events');
 };
 
 export const getUserEvents = async (userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/user/created`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch user events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/user/created`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch user events');
 };
 
 export const checkInteractions = async (eventIds: string[], userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/interactions/check`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ eventIds }),
-  });
-  if (!response.ok) throw new Error('Failed to check interactions');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/interactions/check`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ eventIds }) }, 'Failed to check interactions');
 };
 
 // Admin operations
 export const submitAdminApplication = async (userId: string, motivationText: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/applications`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ motivationText }),
-  });
-  if (!response.ok) throw new Error('Failed to submit application');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/applications`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ motivationText }) }, 'Failed to submit application');
 };
 
 export const getAdminApplications = async (userId: string, status?: string) => {
   const queryString = status ? `?status=${status}` : '';
-  const response = await fetch(`${API_BASE_URL}/host/applications${queryString}`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch applications');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/applications${queryString}`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch applications');
 };
 
 export const reviewAdminApplication = async (applicationId: string, status: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/applications/${applicationId}/review`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ status }),
-  });
-  if (!response.ok) throw new Error('Failed to review application');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/applications/${applicationId}/review`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ status }) }, 'Failed to review application');
 };
 
 export const getPendingEvents = async (userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/pending`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch pending events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/pending`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch pending events');
 };
 
 export const updateEventAdminStatus = async (eventId: string, status: string, userId: string, rejectionReason?: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/${eventId}/status`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ status, rejectionReason }),
-  });
-  if (!response.ok) throw new Error('Failed to update event status');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/${eventId}/status`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ status, rejectionReason }) }, 'Failed to update event status');
 };
 
 export const deleteEvent = async (eventId: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/${eventId}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to delete event');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/${eventId}`, { method: 'DELETE', headers: getAuthHeaders(userId) }, 'Failed to delete event');
 };
 
 export const getAllEvents = async (userId: string, statusFilter?: string) => {
   const queryString = statusFilter ? `?statusFilter=${statusFilter}` : '';
-  const response = await fetch(`${API_BASE_URL}/host/events${queryString}`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch events');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events${queryString}`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch events');
 };
 
 export const toggleEventFeatured = async (eventId: string, isFeatured: boolean, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/${eventId}/featured`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ isFeatured }),
-  });
-  if (!response.ok) throw new Error('Failed to toggle featured status');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/${eventId}/featured`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ isFeatured }) }, 'Failed to toggle featured status');
 };
 
 export const toggleEventPublish = async (eventId: string, shouldPublish: boolean, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/${eventId}/publish`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ shouldPublish }),
-  });
-  if (!response.ok) throw new Error('Failed to toggle publish status');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/${eventId}/publish`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ shouldPublish }) }, 'Failed to toggle publish status');
 };
 // Registration Form operations
 export const createRegistrationForm = async (eventId: string, questions: any[], userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/registration-form`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ questions }),
-  });
-  if (!response.ok) throw new Error('Failed to create registration form');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/registration-form`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ questions }) }, 'Failed to create registration form');
 };
 
 export const getRegistrationForm = async (eventId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/registration-form`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch registration form');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/registration-form`, { method: 'GET', headers: getAuthHeaders() }, 'Failed to fetch registration form');
 };
 
 export const registerEventWithForm = async (eventId: string, formResponses: any[], userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/register-with-form`, {
-    method: 'POST',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ formResponses }),
-  });
-  if (!response.ok) throw new Error('Failed to register with form');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/events/${eventId}/register-with-form`, { method: 'POST', headers: getAuthHeaders(userId), body: JSON.stringify({ formResponses }) }, 'Failed to register with form');
 };
 
 export const getEventRegistrations = async (eventId: string, userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/events/${eventId}/registrations`, {
-    method: 'GET',
-    headers: getAuthHeaders(userId),
-  });
-  if (!response.ok) throw new Error('Failed to fetch registrations');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/events/${eventId}/registrations`, { method: 'GET', headers: getAuthHeaders(userId) }, 'Failed to fetch registrations');
 };
 
 export const updateRegistrationStatus = async (registrationId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED', userId: string) => {
-  const response = await fetch(`${API_BASE_URL}/host/registrations/${registrationId}/status`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(userId),
-    body: JSON.stringify({ status }),
-  });
-  if (!response.ok) throw new Error('Failed to update registration status');
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/host/registrations/${registrationId}/status`, { method: 'PATCH', headers: getAuthHeaders(userId), body: JSON.stringify({ status }) }, 'Failed to update registration status');
 };

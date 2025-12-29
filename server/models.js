@@ -1,6 +1,13 @@
 import pool from './db.js';
 import crypto from 'crypto';
 
+export class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 export const getUser = async (uid) => {
   const connection = await pool.getConnection();
   try {
@@ -30,25 +37,211 @@ export const getUserByEmail = async (email) => {
 export const updateUserProfile = async (uid, updates) => {
   const connection = await pool.getConnection();
   try {
-    const allowedFields = ['full_name', 'is_student', 'college_name', 'photo_url'];
-    const fields = [];
-    const values = [];
+    // Update the users table only for fields that actually exist there
+    const userFieldMap = {
+      fullName: 'full_name',
+      photoUrl: 'photo_url',
+      email: 'email',
+      username: 'username',
+      vouchCode: 'vouch_code',
+      role: 'role',
+    };
 
+    const userFields = [];
+    const userValues = [];
     Object.keys(updates).forEach((key) => {
-      const dbKey = key === 'fullName' ? 'full_name' : key === 'isStudent' ? 'is_student' : key === 'collegeName' ? 'college_name' : key === 'photoUrl' ? 'photo_url' : key;
-      if (allowedFields.includes(dbKey)) {
-        fields.push(`${dbKey} = ?`);
-        values.push(updates[key]);
+      if (userFieldMap[key]) {
+        let val = updates[key];
+        if (key === 'role' && typeof val === 'string') val = val.toUpperCase();
+        userFields.push(`${userFieldMap[key]} = ?`);
+        userValues.push(val);
       }
     });
 
-    if (fields.length === 0) {
-      return await getUser(uid);
+    if (userFields.length > 0) {
+      userValues.push(uid);
+      await connection.query(`UPDATE users SET ${userFields.join(', ')} WHERE id = ?`, userValues);
     }
 
-    values.push(uid);
+    // Determine role (prefer update payload, otherwise read from DB)
+    let role = updates.role ? String(updates.role).toUpperCase() : null;
+    if (!role) {
+      const [rows] = await connection.query('SELECT role FROM users WHERE id = ?', [uid]);
+      role = rows[0]?.role;
+    }
 
-    await connection.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    // Upsert role-specific profile data to the appropriate tables
+    if (role === 'HOST') {
+      // Validate required host profile fields before inserting/updating
+      const requiredHost = ['programName', 'description', 'collegeName', 'location', 'district', 'hostMob', 'dateFrom', 'dateTo'];
+      const missing = requiredHost.filter(k => updates[k] === undefined || updates[k] === null || String(updates[k]).trim() === '');
+      if (missing.length > 0) {
+        throw new ValidationError(`Missing required host fields: ${missing.join(', ')}`);
+      }
+
+      console.log(`Upserting host profile for user ${uid}`);
+      const hostMap = {
+        programName: 'program_name',
+        description: 'program_description',
+        collegeName: 'college_name',
+        location: 'location',
+        district: 'district',
+        hostMob: 'host_mobile',
+        dateFrom: 'date_from',
+        dateTo: 'date_to',
+        logoUrl: 'logo_url',
+      };
+
+      const [existing] = await connection.query('SELECT id, program_name, user_id FROM host_profiles WHERE user_id = ?', [uid]);
+
+      // If creating or updating program name, ensure uniqueness
+      if (updates.programName) {
+        const [conflict] = await connection.query('SELECT user_id FROM host_profiles WHERE program_name = ? AND user_id != ?', [updates.programName, uid]);
+        if (conflict.length > 0) {
+          throw new ValidationError('Program name already taken');
+        }
+      }
+      let hostProfileId = null;
+      if (existing.length > 0) {
+        hostProfileId = existing[0].id;
+        const setParts = [];
+        const vals = [];
+        Object.keys(hostMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            setParts.push(`${hostMap[k]} = ?`);
+            vals.push(updates[k] || null);
+          }
+        });
+        if (setParts.length > 0) {
+          vals.push(uid);
+          await connection.query(`UPDATE host_profiles SET ${setParts.join(', ')} WHERE user_id = ?`, vals);
+        }
+      } else {
+        // Insert a new host profile (assumes required fields are provided by the client)
+        const id = crypto.randomUUID();
+        const cols = ['id', 'user_id'];
+        const placeholders = ['?', '?'];
+        const vals = [id, uid];
+        Object.keys(hostMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            cols.push(hostMap[k]);
+            placeholders.push('?');
+            vals.push(updates[k] || null);
+          }
+        });
+        await connection.query(`INSERT INTO host_profiles (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`, vals);
+        // fetch created host profile id
+        const [hp] = await connection.query('SELECT id FROM host_profiles WHERE user_id = ?', [uid]);
+        hostProfileId = hp[0]?.id;
+      }
+
+      // If hostCategories/customHostCategories provided, persist them
+      if (hostProfileId) {
+        if (Array.isArray(updates.hostCategories)) {
+          // Replace host_event_categories entries
+          await connection.query('DELETE FROM host_event_categories WHERE host_profile_id = ?', [hostProfileId]);
+          for (const cid of updates.hostCategories) {
+            await connection.query('INSERT INTO host_event_categories (host_profile_id, category_id) VALUES (?, ?)', [hostProfileId, cid]);
+          }
+        }
+
+        if (Array.isArray(updates.customHostCategories)) {
+          // Replace host_custom_categories entries
+          await connection.query('DELETE FROM host_custom_categories WHERE host_profile_id = ?', [hostProfileId]);
+          for (const name of updates.customHostCategories) {
+            const id = crypto.randomUUID();
+            const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'custom';
+            await connection.query('INSERT INTO host_custom_categories (id, host_profile_id, name, slug) VALUES (?, ?, ?, ?)', [id, hostProfileId, name, slug]);
+          }
+        }
+      }
+    }
+
+    if (role === 'STUDENT') {
+      // Validate required student profile fields
+      const requiredStudent = ['collegeName', 'course', 'year'];
+      const missing = requiredStudent.filter(k => updates[k] === undefined || updates[k] === null || String(updates[k]).trim() === '');
+      if (missing.length > 0) {
+        throw new ValidationError(`Missing required student fields: ${missing.join(', ')}`);
+      }
+
+      console.log(`Upserting student profile for user ${uid}`);
+      const studentMap = {
+        collegeName: 'college_name',
+        course: 'course',
+        year: 'year_of_study',
+        linkedIn: 'linkedin_url',
+        github: 'github_url',
+      };
+
+      const [existing] = await connection.query('SELECT id FROM student_profiles WHERE user_id = ?', [uid]);
+      if (existing.length > 0) {
+        const setParts = [];
+        const vals = [];
+        Object.keys(studentMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            setParts.push(`${studentMap[k]} = ?`);
+            vals.push(updates[k] || null);
+          }
+        });
+        if (setParts.length > 0) {
+          vals.push(uid);
+          await connection.query(`UPDATE student_profiles SET ${setParts.join(', ')} WHERE user_id = ?`, vals);
+        }
+      } else {
+        const id = crypto.randomUUID();
+        const cols = ['id', 'user_id'];
+        const placeholders = ['?', '?'];
+        const vals = [id, uid];
+        Object.keys(studentMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            cols.push(studentMap[k]);
+            placeholders.push('?');
+            vals.push(updates[k] || null);
+          }
+        });
+        await connection.query(`INSERT INTO student_profiles (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`, vals);
+      }
+    }
+
+    if (role === 'PROFESSIONAL') {
+      // Validate required professional fields
+      if (updates.fieldOfWork === undefined || updates.fieldOfWork === null || String(updates.fieldOfWork).trim() === '') {
+        throw new ValidationError('Missing required professional field: fieldOfWork');
+      }
+
+      console.log(`Upserting professional profile for user ${uid}`);
+      const profMap = { fieldOfWork: 'field_of_work' };
+      const [existing] = await connection.query('SELECT id FROM professional_profiles WHERE user_id = ?', [uid]);
+      if (existing.length > 0) {
+        const setParts = [];
+        const vals = [];
+        Object.keys(profMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            setParts.push(`${profMap[k]} = ?`);
+            vals.push(updates[k] || null);
+          }
+        });
+        if (setParts.length > 0) {
+          vals.push(uid);
+          await connection.query(`UPDATE professional_profiles SET ${setParts.join(', ')} WHERE user_id = ?`, vals);
+        }
+      } else {
+        const id = crypto.randomUUID();
+        const cols = ['id', 'user_id'];
+        const placeholders = ['?', '?'];
+        const vals = [id, uid];
+        Object.keys(profMap).forEach((k) => {
+          if (updates[k] !== undefined) {
+            cols.push(profMap[k]);
+            placeholders.push('?');
+            vals.push(updates[k] || null);
+          }
+        });
+        await connection.query(`INSERT INTO professional_profiles (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`, vals);
+      }
+    }
+
     return await getUser(uid);
   } finally {
     connection.release();
@@ -224,17 +417,18 @@ export const createEvent = async (eventData, userId) => {
 
     const [user] = await connection.query('SELECT full_name, email FROM users WHERE id = ?', [userId]);
 
+    // DB schema uses `description` (no separate title column) and `Maps_link` for google maps
     await connection.query(
       `INSERT INTO events (
-        id, title, description, date, time, location, district, google_maps_link,
+        id, description, date, time, location, district, Maps_link,
         entry_fee, is_free, prize_details, contact_email, contact_phone,
         external_registration_link, registration_method, how_to_register_link, instagram_url, facebook_url,
         youtube_url, banner_url, status, created_by_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
-        eventData.title,
-        eventData.description,
+        // store title in description column (schema uses description in place of title)
+        eventData.title || eventData.description || null,
         eventData.date,
         eventData.time,
         eventData.location,
@@ -328,18 +522,18 @@ export const updateEvent = async (eventId, eventData, userId) => {
     // Get user to check role
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
     const isCreator = events[0].created_by_id === userId;
-    const isUltimateAdmin = users[0]?.role === 'ULTIMATE_ADMIN';
+    const isAdmin = users[0]?.role === 'ADMIN';
 
-    if (!isCreator && !isUltimateAdmin) {
+    if (!isCreator && !isAdmin) {
       throw new Error('Unauthorized - You can only edit your own events');
     }
 
-    const allowedFields = ['title', 'description', 'date', 'time', 'location', 'district', 'google_maps_link', 'entry_fee', 'is_free', 'prize_details', 'contact_email', 'contact_phone', 'external_registration_link', 'registration_method', 'how_to_register_link', 'instagram_url', 'facebook_url', 'youtube_url', 'banner_url'];
+    const allowedFields = ['description', 'date', 'time', 'location', 'district', 'Maps_link', 'entry_fee', 'is_free', 'prize_details', 'contact_email', 'contact_phone', 'external_registration_link', 'registration_method', 'how_to_register_link', 'instagram_url', 'facebook_url', 'youtube_url', 'banner_url'];
     const fields = [];
     const values = [];
 
     Object.keys(eventData).forEach((key) => {
-      const dbKey = key === 'googleMapsLink' ? 'google_maps_link' : key === 'isFree' ? 'is_free' : key === 'entryFee' ? 'entry_fee' : key === 'prizeDetails' ? 'prize_details' : key === 'contactEmail' ? 'contact_email' : key === 'contactPhone' ? 'contact_phone' : key === 'externalRegistrationLink' ? 'external_registration_link' : key === 'registrationMethod' ? 'registration_method' : key === 'howToRegisterLink' ? 'how_to_register_link' : key === 'instagramUrl' ? 'instagram_url' : key === 'facebookUrl' ? 'facebook_url' : key === 'youtubeUrl' ? 'youtube_url' : key === 'bannerUrl' ? 'banner_url' : key;
+      const dbKey = key === 'googleMapsLink' ? 'Maps_link' : key === 'isFree' ? 'is_free' : key === 'entryFee' ? 'entry_fee' : key === 'prizeDetails' ? 'prize_details' : key === 'contactEmail' ? 'contact_email' : key === 'contactPhone' ? 'contact_phone' : key === 'externalRegistrationLink' ? 'external_registration_link' : key === 'registrationMethod' ? 'registration_method' : key === 'howToRegisterLink' ? 'how_to_register_link' : key === 'instagramUrl' ? 'instagram_url' : key === 'facebookUrl' ? 'facebook_url' : key === 'youtubeUrl' ? 'youtube_url' : key === 'bannerUrl' ? 'banner_url' : key === 'title' ? 'description' : key;
       if (allowedFields.includes(dbKey)) {
         fields.push(`${dbKey} = ?`);
         values.push(eventData[key]);
@@ -650,10 +844,11 @@ export const submitAdminApplication = async (userId, motivationText) => {
 export const getAdminApplications = async (userId, status = null) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is an admin (event admin or ultimate admin)
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     let query = 'SELECT * FROM admin_applications';
@@ -674,10 +869,11 @@ export const getAdminApplications = async (userId, status = null) => {
 export const reviewAdminApplication = async (applicationId, status, userId) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is an admin (event admin or ultimate admin)
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     // Get application
@@ -715,10 +911,11 @@ export const reviewAdminApplication = async (applicationId, status, userId) => {
 export const getPendingEvents = async (userId) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is an admin (event admin or ultimate admin)
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     const [events] = await connection.query(
@@ -734,10 +931,11 @@ export const getPendingEvents = async (userId) => {
 export const updateEventAdminStatus = async (eventId, status, userId, rejectionReason = null) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is an admin (event admin or ultimate admin)
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     let query = 'UPDATE events SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?';
@@ -748,6 +946,8 @@ export const updateEventAdminStatus = async (eventId, status, userId, rejectionR
       values.splice(3, 0, rejectionReason);
     }
 
+    // Log admin status change for audit/debugging
+    console.log(`Admin ${userId} setting event ${eventId} status -> ${status}${rejectionReason ? ` (reason: ${rejectionReason})` : ''}`);
     await connection.query(query, values);
     return { success: true, message: `Event ${status.toLowerCase()} successfully` };
   } finally {
@@ -758,16 +958,54 @@ export const updateEventAdminStatus = async (eventId, status, userId, rejectionR
 export const deleteEvent = async (eventId, userId) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Allow admins or the event creator to delete an event permanently
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+
+    // Fetch event to check creator
+    const [events] = await connection.query('SELECT created_by_id FROM events WHERE id = ?', [eventId]);
+    if (events.length === 0) {
+      throw new Error('Event not found');
     }
 
-    await connection.query(
-      'UPDATE events SET status = "ARCHIVED", archived_at = NOW(), archived_by = ? WHERE id = ?',
-      [userId, eventId]
-    );
+    const isCreator = events[0].created_by_id === userId;
+    const isAdmin = role === 'ADMIN';
+
+    if (!isAdmin && !isCreator) {
+      throw new Error('Unauthorized - only admins or the event creator can delete this event');
+    }
+
+    console.log(`User ${userId} deleting event ${eventId}`);
+
+    // Delete related data to avoid foreign key issues / orphaned rows
+    try {
+      await connection.query('DELETE FROM registration_form_responses WHERE event_id = ?', [eventId]);
+    } catch (e) {
+      // ignore if table doesn't exist
+    }
+
+    try {
+      await connection.query('DELETE FROM registration_form_questions WHERE event_id = ?', [eventId]);
+    } catch (e) {}
+
+    try {
+      await connection.query('DELETE FROM event_registrations WHERE event_id = ?', [eventId]);
+    } catch (e) {}
+
+    try {
+      await connection.query('DELETE FROM event_likes WHERE event_id = ?', [eventId]);
+    } catch (e) {}
+
+    try {
+      await connection.query('DELETE FROM event_assets WHERE event_id = ?', [eventId]);
+    } catch (e) {}
+
+    try {
+      await connection.query('DELETE FROM event_category_links WHERE event_id = ?', [eventId]);
+    } catch (e) {}
+
+    // Finally delete the event row
+    await connection.query('DELETE FROM events WHERE id = ?', [eventId]);
 
     return { success: true, message: 'Event deleted successfully' };
   } finally {
@@ -778,10 +1016,10 @@ export const deleteEvent = async (eventId, userId) => {
 export const getAllEvents = async (userId, statusFilter = null) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is admin
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    if (users[0]?.role !== 'ADMIN') {
+      throw new Error('Unauthorized - Admin only');
     }
 
     let query = 'SELECT * FROM events';
@@ -802,10 +1040,11 @@ export const getAllEvents = async (userId, statusFilter = null) => {
 export const toggleEventFeatured = async (eventId, isFeatured, userId) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is admin or event admin
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     if (isFeatured) {
@@ -829,14 +1068,17 @@ export const toggleEventFeatured = async (eventId, isFeatured, userId) => {
 export const toggleEventPublish = async (eventId, shouldPublish, userId) => {
   const connection = await pool.getConnection();
   try {
-    // Verify user is ultimate admin
+    // Verify user is admin or event admin
     const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [userId]);
-    if (users[0]?.role !== 'ULTIMATE_ADMIN') {
-      throw new Error('Unauthorized - Ultimate admin only');
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
     }
 
     const newStatus = shouldPublish ? 'PUBLISHED' : 'DRAFT';
 
+    // Log publish/unpublish actions for diagnostics
+    console.log(`User ${userId} setting publish=${shouldPublish} for event ${eventId} (new status=${newStatus})`);
     if (shouldPublish) {
       await connection.query(
         'UPDATE events SET status = ?, published_by = ?, published_at = NOW() WHERE id = ?',
@@ -863,6 +1105,112 @@ export const getFeaturedEvents = async () => {
     );
 
     return { events: await Promise.all(events.map(e => formatEventData(e, connection))) };
+  } finally {
+    connection.release();
+  }
+};
+
+// Programs (host profiles) and related events
+export const getPrograms = async () => {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query(
+      `SELECT hp.program_name, hp.program_description, hp.user_id, u.full_name, u.email, u.photo_url
+       FROM host_profiles hp
+       LEFT JOIN users u ON hp.user_id = u.id
+       ORDER BY hp.program_name ASC`
+    );
+
+    return {
+      programs: rows.map(r => ({
+        programName: r.program_name,
+        description: r.program_description,
+        userId: r.user_id,
+        host: { id: r.user_id, fullName: r.full_name, email: r.email, photoUrl: r.photo_url },
+      })),
+    };
+  } finally {
+    connection.release();
+  }
+};
+
+export const getProgramByName = async (programName) => {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query('SELECT * FROM host_profiles WHERE program_name = ? LIMIT 1', [programName]);
+    if (rows.length === 0) return { program: null };
+    const p = rows[0];
+    const [userRows] = await connection.query('SELECT id, full_name, email, photo_url FROM users WHERE id = ?', [p.user_id]);
+    return { program: { programName: p.program_name, description: p.program_description, userId: p.user_id, host: userRows[0] || null } };
+  } finally {
+    connection.release();
+  }
+};
+
+export const getEventsByProgram = async (programName) => {
+  const connection = await pool.getConnection();
+  try {
+    const [profiles] = await connection.query('SELECT user_id FROM host_profiles WHERE program_name = ? LIMIT 1', [programName]);
+    if (profiles.length === 0) return { events: [] };
+    const userId = profiles[0].user_id;
+    const [events] = await connection.query('SELECT * FROM events WHERE created_by_id = ? AND status = "PUBLISHED" ORDER BY date ASC', [userId]);
+    return { events: await Promise.all(events.map(e => formatEventData(e, connection))) };
+  } finally {
+    connection.release();
+  }
+};
+
+export const getEventByProgramAndId = async (programName, eventId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [profiles] = await connection.query('SELECT user_id FROM host_profiles WHERE program_name = ? LIMIT 1', [programName]);
+    if (profiles.length === 0) return { event: null };
+    const userId = profiles[0].user_id;
+    const [events] = await connection.query('SELECT * FROM events WHERE id = ? AND created_by_id = ? LIMIT 1', [eventId, userId]);
+    if (events.length === 0) return { event: null };
+    return { event: await formatEventData(events[0], connection) };
+  } finally {
+    connection.release();
+  }
+};
+
+// Host management - list hosts and revoke host privileges
+export const getHosts = async (requestingUserId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [requestingUserId]);
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
+    }
+
+    const [hosts] = await connection.query(
+      "SELECT id, full_name, email, role, photo_url, created_at FROM users WHERE role IN ('HOST','EVENT_ADMIN','ADMIN')"
+    );
+    return { hosts };
+  } finally {
+    connection.release();
+  }
+};
+
+export const revokeHost = async (targetUserId, requestingUserId) => {
+  const connection = await pool.getConnection();
+  try {
+    const [users] = await connection.query('SELECT role FROM users WHERE id = ?', [requestingUserId]);
+    const role = users[0]?.role;
+    if (!['ADMIN', 'EVENT_ADMIN'].includes(role)) {
+      throw new Error('Unauthorized - Admin only');
+    }
+
+    // Set the target user's role back to STUDENT by default and remove host profile if exists
+    await connection.query('UPDATE users SET role = ? WHERE id = ?', ['STUDENT', targetUserId]);
+    try {
+      await connection.query('DELETE FROM host_profiles WHERE user_id = ?', [targetUserId]);
+    } catch (err) {
+      // ignore if host_profiles table doesn't exist
+    }
+
+    return { success: true, message: 'Host privileges revoked' };
   } finally {
     connection.release();
   }
@@ -904,6 +1252,17 @@ async function formatEventData(dbEvent, connection) {
     'SELECT id, full_name, email FROM users WHERE id = ?',
     [dbEvent.created_by_id]
   );
+
+  // Get host/program info if available
+  let programInfo = null;
+  try {
+    const [hostRows] = await connection.query('SELECT program_name, program_description FROM host_profiles WHERE user_id = ?', [dbEvent.created_by_id]);
+    if (hostRows.length > 0) {
+      programInfo = { programName: hostRows[0].program_name, description: hostRows[0].program_description };
+    }
+  } catch (err) {
+    // ignore if host_profiles table missing
+  }
 
   // Get assets (brochures, posters, socials) with graceful fallback
   let brochures = [];
@@ -957,7 +1316,7 @@ async function formatEventData(dbEvent, connection) {
     isFeatured: dbEvent.is_featured,
     featuredAt: dbEvent.featured_at,
     featuredBy: dbEvent.featured_by,
-    createdBy: creator[0] ? { id: creator[0].id, fullName: creator[0].full_name, email: creator[0].email } : null,
+    createdBy: creator[0] ? { id: creator[0].id, fullName: creator[0].full_name, email: creator[0].email, program: programInfo } : null,
     createdAt: dbEvent.created_at,
     updatedAt: dbEvent.updated_at,
     brochureFiles: brochures,

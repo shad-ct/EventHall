@@ -4,7 +4,7 @@ import { adminAPI } from '../lib/api';
 import { AdminApplication, Event } from '../types';
 import { ArrowLeft, Check, X, Calendar, Star } from 'lucide-react';
 
-export const UltimateAdminPage: React.FC = () => {
+export const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'adminRequests' | 'events' | 'allEvents' | 'featured'>('adminRequests');
   const [applications, setApplications] = useState<AdminApplication[]>([]);
@@ -125,21 +125,16 @@ export const UltimateAdminPage: React.FC = () => {
   const handleToggleFeatured = async (id: string, currentlyFeatured: boolean) => {
     try {
       await adminAPI.toggleEventFeatured(id, !currentlyFeatured);
-      // Update the event in all relevant lists
       setAllEvents(prev => prev.map(event => 
         event.id === id ? { ...event, isFeatured: !currentlyFeatured } : event
       ));
-      
       if (currentlyFeatured) {
-        // Remove from featured list
         setFeaturedEvents(prev => prev.filter(event => event.id !== id));
       } else {
-        // Refresh featured list to include the new event
         if (activeTab === 'featured') {
           fetchFeaturedEvents();
         }
       }
-      
       alert(currentlyFeatured ? 'Event removed from banner' : 'Event added to banner');
     } catch (error) {
       console.error('Failed to toggle featured status:', error);
@@ -150,25 +145,18 @@ export const UltimateAdminPage: React.FC = () => {
   const handleTogglePublish = async (id: string, currentStatus: string) => {
     const isPublished = currentStatus === 'PUBLISHED';
     const action = isPublished ? 'unpublish' : 'publish';
-    
     if (!confirm(`Are you sure you want to ${action} this event?`)) {
       return;
     }
-
     try {
       await adminAPI.toggleEventPublish(id, !isPublished);
-      
-      // Update the event in all relevant lists
       const newStatus = isPublished ? 'DRAFT' : 'PUBLISHED';
       setAllEvents(prev => prev.map(event => 
         event.id === id ? { ...event, status: newStatus } : event
       ));
-      
-      // If unpublishing a featured event, remove it from featured list
       if (isPublished) {
         setFeaturedEvents(prev => prev.filter(event => event.id !== id));
       }
-      
       alert(`Event ${action}ed successfully!`);
     } catch (error) {
       console.error(`Failed to ${action} event:`, error);
@@ -178,7 +166,6 @@ export const UltimateAdminPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
         <div className="max-w-6xl mx-auto p-6">
           <div className="flex items-center mb-4">
@@ -188,14 +175,13 @@ export const UltimateAdminPage: React.FC = () => {
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold">Ultimate Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           </div>
           <p className="text-purple-100">Manage applications and event approvals</p>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="flex border-b overflow-x-auto">
             <button
@@ -255,10 +241,8 @@ export const UltimateAdminPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Event Host Requests Tab */}
             {activeTab === 'adminRequests' && (
               <div>
-                {/* Status Filter */}
                 <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Filter by Status
@@ -346,7 +330,6 @@ export const UltimateAdminPage: React.FC = () => {
               </div>
             )}
 
-            {/* Events Tab */}
             {activeTab === 'events' && (
               <div className="space-y-4">
                 {pendingEvents.length === 0 ? (
@@ -415,7 +398,6 @@ export const UltimateAdminPage: React.FC = () => {
               </div>
             )}
 
-            {/* Featured Events Tab */}
             {activeTab === 'featured' && (
               <div>
                 <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
@@ -531,10 +513,8 @@ export const UltimateAdminPage: React.FC = () => {
               </div>
             )}
 
-            {/* All Events Tab */}
             {activeTab === 'allEvents' && (
               <div>
-                {/* Status Filter */}
                 <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Filter by Status
@@ -618,8 +598,6 @@ export const UltimateAdminPage: React.FC = () => {
                           >
                             Edit
                           </button>
-                          
-                          {/* Publish/Unpublish Button */}
                           {(event.status === 'PUBLISHED' || event.status === 'DRAFT' || event.status === 'REJECTED') && (
                             <button
                               onClick={() => handleTogglePublish(event.id, event.status)}
@@ -632,8 +610,6 @@ export const UltimateAdminPage: React.FC = () => {
                               {event.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
                             </button>
                           )}
-                          
-                          {/* Feature/Unfeature Button */}
                           {event.status === 'PUBLISHED' && (
                             <button
                               onClick={() => handleToggleFeatured(event.id, event.isFeatured || false)}
@@ -647,8 +623,6 @@ export const UltimateAdminPage: React.FC = () => {
                               {event.isFeatured ? 'Unfeature' : 'Feature'}
                             </button>
                           )}
-                          
-                          {/* Approve/Reject for Pending */}
                           {event.status === 'PENDING_APPROVAL' && (
                             <>
                               <button
@@ -665,7 +639,6 @@ export const UltimateAdminPage: React.FC = () => {
                               </button>
                             </>
                           )}
-                          
                           <button
                             onClick={() => handleDeleteEvent(event.id)}
                             className="flex-1 min-w-[100px] bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg transition-colors"

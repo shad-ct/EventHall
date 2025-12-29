@@ -7,13 +7,24 @@ export const DesktopNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'EVENT_ADMIN' || user?.role === 'ULTIMATE_ADMIN';
+  const isAdminGroup = ['EVENT_ADMIN', 'ADMIN'].includes(user?.role || '');
+  const isAdmin = user?.role === 'ADMIN';
+  // @ts-expect-error: "HOST" is a possible role but not in the current type definition
+  const isHost = user?.role === 'HOST';
   const [query, setQuery] = useState('');
+
+  const adminItems = [] as any[];
+  if (isAdminGroup) {
+    adminItems.push({ label: 'Dashboard', path: '/host/dashboard' });
+  }
+  if (isHost || (isAdminGroup && !isAdmin)) {
+    adminItems.push({ label: 'Host', path: '/host/events' });
+  }
 
   const navItems = [
     { label: 'Home', path: '/home' },
     { label: 'Search', path: '/search' },
-    ...(isAdmin ? [{ label: 'Host', path: '/host/events' }] : []),
+    ...adminItems,
     { label: 'Profile', path: '/profile' },
   ];
 

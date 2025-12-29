@@ -87,7 +87,7 @@ app.get('/api/maps/reverse', async (req, res) => {
 });
 
 // ==================== AUTH ENDPOINTS ====================
-app.post('/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
@@ -122,6 +122,25 @@ app.get('/api/users/:uid', async (req, res) => {
       id: cat.id,
       category: cat,
     }));
+
+    // If host, include host profile and custom categories
+    if (user.role === 'HOST') {
+      const [hostRows] = await connection.query('SELECT * FROM host_profiles WHERE user_id = ?', [req.params.uid]);
+      if (hostRows.length > 0) {
+        const hp = hostRows[0];
+        user.programName = hp.program_name;
+        user.programDescription = hp.program_description;
+        user.programLogo = hp.logo_url;
+        user.hostMobile = hp.host_mobile;
+        user.hostLocation = hp.location;
+
+        const [hostCats] = await connection.query('SELECT category_id FROM host_event_categories WHERE host_profile_id = ?', [hp.id]);
+        user.hostCategoryIds = hostCats.map(r => r.category_id);
+
+        const [customCats] = await connection.query('SELECT name FROM host_custom_categories WHERE host_profile_id = ?', [hp.id]);
+        user.customHostCategories = customCats.map(r => r.name);
+      }
+    }
   } finally {
     connection.release();
   }
@@ -130,8 +149,15 @@ app.get('/api/users/:uid', async (req, res) => {
 });
 
 app.put('/api/users/:uid/profile', async (req, res) => {
-  const user = await models.updateUserProfile(req.params.uid, req.body);
-  res.json(user);
+  try {
+    const user = await models.updateUserProfile(req.params.uid, req.body);
+    res.json(user);
+  } catch (err) {
+    if (err instanceof models.ValidationError) {
+      return res.status(400).json({ error: err.message });
+    }
+    throw err;
+  }
 });
 
 app.put('/api/users/:uid/interests', async (req, res) => {
@@ -180,6 +206,45 @@ app.get('/api/events/:id', async (req, res) => {
     return res.status(404).json({ error: 'Event not found' });
   }
   res.json(result);
+});
+
+// Programs endpoints
+app.get('/api/programs', async (req, res) => {
+  try {
+    const result = await models.getPrograms();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/programs/:programName', async (req, res) => {
+  try {
+    const result = await models.getProgramByName(req.params.programName);
+    if (!result.program) return res.status(404).json({ error: 'Program not found' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/programs/:programName/events', async (req, res) => {
+  try {
+    const result = await models.getEventsByProgram(req.params.programName);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/programs/:programName/events/:eventId', async (req, res) => {
+  try {
+    const result = await models.getEventByProgramAndId(req.params.programName, req.params.eventId);
+    if (!result.event) return res.status(404).json({ error: 'Event not found for this program' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/events', async (req, res) => {
@@ -357,6 +422,30 @@ app.post('/api/host/events/:id/publish', async (req, res) => {
   const { shouldPublish } = req.body;
   const result = await models.toggleEventPublish(req.params.id, shouldPublish, userId);
   res.json(result);
+});
+
+// Admin: list hosts
+app.get('/api/admin/hosts', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return res.status(401).json({ error: 'User ID required' });
+  try {
+    const result = await models.getHosts(userId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: revoke host privileges
+app.delete('/api/admin/hosts/:id', async (req, res) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return res.status(401).json({ error: 'User ID required' });
+  try {
+    const result = await models.revokeHost(req.params.id, userId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ==================== REGISTRATION FORM ENDPOINTS ====================

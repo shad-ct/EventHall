@@ -34,6 +34,10 @@ import {
   registerEventWithForm as fsRegisterEventWithForm,
   getEventRegistrations as fsGetEventRegistrations,
   updateRegistrationStatus as fsUpdateRegistrationStatus,
+  getPrograms as fsGetPrograms,
+  getProgram as fsGetProgram,
+  getProgramEvents as fsGetProgramEvents,
+  getProgramEvent as fsGetProgramEvent,
 } from './firestore';
 
 export const authAPI = {
@@ -68,6 +72,11 @@ export const eventAPI = {
   registerEventWithForm: fsRegisterEventWithForm,
   getEventRegistrations: fsGetEventRegistrations,
   updateRegistrationStatus: fsUpdateRegistrationStatus,
+  // Programs
+  getPrograms: fsGetPrograms,
+  getProgram: fsGetProgram,
+  getProgramEvents: fsGetProgramEvents,
+  getProgramEvent: fsGetProgramEvent,
 };
 
 export const adminAPI = {

@@ -16,7 +16,7 @@ export interface User {
   email: string;
   fullName: string;
   photoUrl?: string;
-  role: 'STANDARD_USER' | 'EVENT_ADMIN' | 'ULTIMATE_ADMIN' | 'GUEST';
+  role: 'STANDARD_USER' | 'EVENT_ADMIN' | 'ADMIN' | 'GUEST';
   isStudent: boolean | null;
   collegeName?: string | null;
   interests: UserInterest[];

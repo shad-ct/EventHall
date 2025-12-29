@@ -28,9 +28,11 @@ export const EventCard: React.FC<EventCardProps> = ({
   }, [isLiked]);
 
   const formatDate = (dateStr: string, timeStr: string) => {
+    if (!dateStr) return timeStr || '';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return timeStr || '';
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} • ${timeStr}`;
+    return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} • ${timeStr || ''}`;
   };
 
   const handleLikeClick = async (e: React.MouseEvent) => {
@@ -65,7 +67,7 @@ export const EventCard: React.FC<EventCardProps> = ({
           />
         ) : (
           <div className="flex items-center justify-center h-full text-white text-xl font-bold">
-            {event.title.substring(0, 2).toUpperCase()}
+            {(event.title && String(event.title).substring(0, 2).toUpperCase()) || '?'}
           </div>
         )}
 

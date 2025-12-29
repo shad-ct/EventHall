@@ -1,4 +1,4 @@
-import { Home, Search, User, Plus } from 'lucide-react';
+import { Home, Search, User, Plus, Shield } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -6,12 +6,22 @@ export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'EVENT_ADMIN' || user?.role === 'ULTIMATE_ADMIN';
+  const isAdminGroup = ['EVENT_ADMIN', 'ADMIN'].includes(user?.role || '');
+  const isAdmin = user?.role === 'ADMIN';
+  const isHost = user?.role === 'HOST';
+
+  const adminItems = [] as any[];
+  if (isAdminGroup) {
+    adminItems.push({ icon: Shield, label: 'Dashboard', path: '/host/dashboard' });
+  }
+  if (isHost || (isAdminGroup && !isAdmin)) {
+    adminItems.push({ icon: Plus, label: 'My Events', path: '/host/events' });
+  }
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Search', path: '/search' },
-    ...(isAdmin ? [{ icon: Plus, label: 'My Events', path: '/host/events' }] : []),
+    ...adminItems,
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 

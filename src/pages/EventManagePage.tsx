@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { eventAPI } from '../lib/api';
+import { eventAPI, adminAPI } from '../lib/api';
 import { Event } from '../types';
-import { ArrowLeft, Edit, Users, CheckCircle, XCircle, Clock, Mail, Phone, Calendar, MapPin, Download, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Edit, Users, CheckCircle, XCircle, Clock, Mail, Phone, Calendar, MapPin, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { BottomNav } from '../components/BottomNav';
 import { DesktopNav } from '../components/DesktopNav';
 
@@ -26,6 +26,7 @@ export const EventManagePage: React.FC = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'registrations'>('overview');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -150,6 +151,23 @@ export const EventManagePage: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const handleDeleteEvent = async () => {
+    if (!id) return;
+    const confirmed = window.confirm('Are you sure you want to permanently delete this event? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await adminAPI.deleteEvent(id);
+      navigate('/host/events');
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      alert('Failed to delete event');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: 'bg-yellow-100 text-yellow-700 border-yellow-300',
@@ -237,6 +255,16 @@ export const EventManagePage: React.FC = () => {
                 <Edit className="w-5 h-5 mr-2" />
                 <span className="hidden sm:inline">Edit Event</span>
                 <span className="sm:hidden">Edit</span>
+              </button>
+              <button
+                onClick={handleDeleteEvent}
+                disabled={deleting}
+                className="flex items-center bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                title="Delete event permanently"
+              >
+                <Trash2 className="w-5 h-5 mr-2" />
+                <span className="hidden sm:inline">{deleting ? 'Deleting...' : 'Delete Event'}</span>
+                <span className="sm:hidden">Del</span>
               </button>
             </div>
           </div>
