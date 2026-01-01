@@ -9,6 +9,7 @@ import { BottomNav } from '../components/BottomNav';
 import { useAuth } from '../contexts/AuthContext';
 import { getUser } from '../lib/firestore';
 import { Calendar, MapPin, Phone, ArrowLeft } from 'lucide-react';
+import { getHostImage } from '../lib/image';
 
 export const ProgramDetailPage: React.FC = () => {
   const { programName } = useParams<{ programName: string }>();
@@ -22,6 +23,7 @@ export const ProgramDetailPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const programLogShown = useRef(false);
 
   useEffect(() => {
     if (!programName) return;
@@ -43,6 +45,10 @@ export const ProgramDetailPage: React.FC = () => {
 
         const programObj = pRes?.program || null;
         setProgram(programObj);
+        if (programObj && !programLogShown.current) {
+          console.warn('ProgramDetail fetched program:', programObj);
+          programLogShown.current = true;
+        }
         setEvents(evRes?.events || []);
 
         // Fetch host profile only when we have a host id and it's different
@@ -139,9 +145,12 @@ export const ProgramDetailPage: React.FC = () => {
   const dateTo = read(host, 'dateTo', 'date_to', 'endDate', 'end_date') || programObj.dateTo || programObj.date_to || '';
   const contact = read(host, 'hostMob', 'host_mobile', 'host_mobile', 'contactPhone', 'phone', 'mobile', 'mobileNumber', 'contact_phone') || programObj.contactPhone || programObj.contact_phone || programObj.host_mobile || '';
   const hostName = read(host, 'fullName', 'full_name') || read(programObj, 'host.fullName', 'host.full_name') || 'Unknown Host';
-  const hostImage = read(hostProfile, 'logoUrl', 'logo_url', 'programLogo', 'program_logo', 'photoUrl', 'photo_url') || read(programObj, 'logoUrl', 'logo_url', 'programLogo', 'program_logo') || '';
-  const displayProgramName = read(programObj, 'programName', 'program_name') || '';
-  const displayProgramDescription = read(programObj, 'description', 'program_description') || '';
+  const hostImage = getHostImage(hostProfile || programObj) || '';
+  if (!hostImage && !programLogShown.current) {
+    console.warn('ProgramDetail: missing image fields, sample program:', programObj);
+    programLogShown.current = true;
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-10">

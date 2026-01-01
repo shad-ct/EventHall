@@ -1291,8 +1291,8 @@ async function formatEventData(dbEvent, connection) {
 
   return {
     id: dbEvent.id,
-    title: dbEvent.title,
-    description: dbEvent.description,
+    title: dbEvent.title || dbEvent.description,
+    description: dbEvent.description || dbEvent.title,
     date: dbEvent.date,
     time: dbEvent.time,
     location: dbEvent.location,
