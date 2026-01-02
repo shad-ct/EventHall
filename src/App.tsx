@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/LoginPage';
+import AdminLoginPage from './pages/AdminLoginPage.tsx';
 import { CompleteProfilePage } from './pages/CompleteProfilePage';
 import { HomePage } from './pages/HomePage';
 import { SearchPage } from './pages/SearchPage';
@@ -95,6 +96,7 @@ function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LoginPage />} />
+      <Route path="/admin-login" element={<AdminLoginPage />} />
 
       {/* Protected Routes */}
       <Route

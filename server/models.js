@@ -288,6 +288,57 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+export const upsertGoogleUser = async ({ uid, email, displayName, photoURL }) => {
+  const connection = await pool.getConnection();
+  try {
+    // Prefer matching by firebase_uid first
+    const [byUid] = await connection.query('SELECT * FROM users WHERE firebase_uid = ?', [uid]);
+    if (byUid.length > 0) {
+      return formatUserData(byUid[0]);
+    }
+
+    // Then try matching by email
+    if (email) {
+      const [byEmail] = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+      if (byEmail.length > 0) {
+        const existing = byEmail[0];
+        // Update firebase_uid and basic profile fields
+        await connection.query(
+          'UPDATE users SET firebase_uid = ?, full_name = ?, photo_url = ? WHERE id = ?',
+          [uid, displayName || existing.full_name, photoURL || existing.photo_url, existing.id]
+        );
+        const [rows] = await connection.query('SELECT * FROM users WHERE id = ?', [existing.id]);
+        return formatUserData(rows[0]);
+      }
+    }
+
+    // Create a new user (default to STUDENT role)
+    const id = crypto.randomUUID();
+    const pwHash = hashPassword(crypto.randomBytes(16).toString('hex'));
+    const role = 'STUDENT';
+    await connection.query(
+      'INSERT INTO users (id, firebase_uid, full_name, email, role, username, password_hash, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, uid, displayName || '', email || '', role, null, pwHash, photoURL || null]
+    );
+
+    const [newRows] = await connection.query('SELECT * FROM users WHERE id = ?', [id]);
+    return formatUserData(newRows[0]);
+  } finally {
+    connection.release();
+  }
+};
+
+export const setUserCredentials = async (uid, username, password) => {
+  const connection = await pool.getConnection();
+  try {
+    const pwHash = hashPassword(password);
+    await connection.query('UPDATE users SET username = ?, password_hash = ? WHERE id = ?', [username, pwHash, uid]);
+    return await getUser(uid);
+  } finally {
+    connection.release();
+  }
+};
+
 export const loginUser = async (username, password) => {
   const connection = await pool.getConnection();
   try {

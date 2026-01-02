@@ -101,6 +101,39 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Google sign-in: upsert user into SQL DB
+app.post('/api/auth/google', async (req, res) => {
+  const { uid, email, displayName, photoURL } = req.body;
+  if (!uid || !email) {
+    return res.status(400).json({ error: 'uid and email are required' });
+  }
+
+  try {
+    const user = await models.upsertGoogleUser({ uid, email, displayName, photoURL });
+    res.json({ user });
+  } catch (err) {
+    console.error('Google upsert failed:', err);
+    res.status(500).json({ error: 'Failed to upsert Google user' });
+  }
+});
+
+// Create a user for Google sign-in with username/password and associate firebase id
+app.post('/api/auth/google-signup', async (req, res) => {
+  const { username, password, googleId, email, displayName, photoURL } = req.body;
+  if (!username || !password || !googleId) {
+    return res.status(400).json({ error: 'username, password and googleId are required' });
+  }
+
+  try {
+    const user = await models.upsertGoogleUser({ uid: googleId, email, displayName, photoURL });
+    const updated = await models.setUserCredentials(user.id, username, password);
+    res.json({ user: updated });
+  } catch (err) {
+    console.error('Google signup failed:', err);
+    res.status(500).json({ error: 'Failed to create user with Google' });
+  }
+});
+
 // ==================== USER ENDPOINTS ====================
 
 app.get('/api/users/:uid', async (req, res) => {
@@ -556,5 +589,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

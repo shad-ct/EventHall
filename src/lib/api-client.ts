@@ -1,5 +1,7 @@
 // API client for EventHall backend
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Prefer VITE_API_URL (may include /api) or VITE_API_BASE; avoid hardcoded localhost here.
+const rawApiUrl = (import.meta.env.VITE_API_URL as string) || (import.meta.env.VITE_API_BASE as string) || '';
+export const API_BASE_URL = rawApiUrl.replace(/\/$/, '');
 
 // Helper function to get auth headers
 const getAuthHeaders = (userId?: string): Record<string, string> => {
@@ -10,7 +12,7 @@ const getAuthHeaders = (userId?: string): Record<string, string> => {
     headers['x-user-id'] = userId;
   }
   return headers;
-};
+}; 
 
 const fetchJson = async (url: string, init: RequestInit = {}, errorPrefix = 'Request failed') => {
   const response = await fetch(url, init);

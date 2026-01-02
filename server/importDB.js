@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SQL_FILE = path.resolve(__dirname, '..', 'database', 'eventhall.sql');
 
-const host = process.env.DB_HOST || 'localhost';
+const host = process.env.DB_HOST;
 const user = process.env.DB_USER || 'root';
 const password = process.env.DB_PASSWORD || '';
 const dbName = 'eventhall';

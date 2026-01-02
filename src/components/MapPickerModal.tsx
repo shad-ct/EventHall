@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Navigation, Search } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { API_BASE_URL } from '../lib/api-client';
 
 interface MapPickerModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ export function MapPickerModal({ isOpen, onClose, onSelect }: MapPickerModalProp
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  // API_BASE_URL is imported from src/lib/api-client and derives from Vite env vars
 
   // Default coordinates (center of India)
   const DEFAULT_LAT = 20.5937;

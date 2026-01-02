@@ -15,7 +15,24 @@ const getCurrentUserId = (): string | null => {
 };
 
 export const getUser = async (uid: string) => {
-  return apiClient.getUser(uid);
+  // Try by DB user id first; if not found, fall back to email
+  const byId = await apiClient.getUser(uid);
+  if (byId) return byId;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('authUser');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.email) {
+          const byEmail = await apiClient.getUserByEmail(parsed.email);
+          if (byEmail) return byEmail;
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
+  return null;
 };
 
 export const getUserByEmail = async (email: string) => {

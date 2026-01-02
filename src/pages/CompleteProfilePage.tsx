@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { updateUserProfile, updateUserInterests } from '../lib/firestore';
+import { getUserByEmail as getUserByEmailApi } from '../lib/api-client';
 import { getCategories } from '../lib/api-client';
 import { createUserWithGoogle } from '../lib/google-auth';
 import { EventCategory } from '../types';
@@ -10,7 +11,7 @@ import { uploadFile } from '../lib/file-storage';
 
 
 export const CompleteProfilePage: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, setAuthUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isGoogleSignIn = Boolean(location.state && location.state.googleUser);
@@ -168,12 +169,28 @@ export const CompleteProfilePage: React.FC = () => {
     try {
       let uid = user?.id;
       if (isGoogleSignIn && location.state.googleUser) {
-        const created = await createUserWithGoogle({
-          username: username.trim(),
-          password: password.trim(),
-          googleUser: location.state.googleUser,
-        });
-        uid = created.user?.id;
+        try {
+          const created = await createUserWithGoogle({
+            username: username.trim(),
+            password: password.trim(),
+            googleUser: location.state.googleUser,
+          });
+          uid = created.user?.id;
+          if (created.user) {
+            // Persist returned DB user so future calls use correct ID
+            setAuthUser(created.user);
+          }
+        } catch (e) {
+          // Fallback: resolve user by email if signup failed
+          const email = (user?.email) || (location.state.googleUser?.email);
+          if (email) {
+            const byEmail = await getUserByEmailApi(email);
+            if (byEmail && byEmail.id) {
+              uid = byEmail.id;
+              setAuthUser(byEmail as any);
+            }
+          }
+        }
       }
       if (!uid) throw new Error('Not authenticated');
 
